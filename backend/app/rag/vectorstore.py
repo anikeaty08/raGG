@@ -1,7 +1,8 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct,
-    Filter, FieldCondition, MatchValue, PointIdsList, Range
+    Filter, FieldCondition, MatchValue, PointIdsList, Range,
+    PayloadSchemaType
 )
 import uuid
 from typing import Optional
@@ -69,6 +70,10 @@ class VectorStore:
                 )
                 print(f"Created collection {self.COLLECTION_NAME} with vector size {self.vector_size}")
 
+            # Create index on user_id for documents collection
+            self._ensure_index(self.COLLECTION_NAME, "user_id")
+            self._ensure_index(self.COLLECTION_NAME, "source_id")
+
             # Sources metadata collection
             if self.SOURCES_COLLECTION not in collections:
                 self.client.create_collection(
@@ -80,9 +85,26 @@ class VectorStore:
                 )
                 print(f"Created collection {self.SOURCES_COLLECTION} with vector size {self.vector_size}")
 
+            # Create index on user_id for sources collection
+            self._ensure_index(self.SOURCES_COLLECTION, "user_id")
+
         except Exception as e:
             print(f"Error initializing collections: {e}")
             raise
+
+    def _ensure_index(self, collection_name: str, field_name: str):
+        """Create a payload index if it doesn't exist."""
+        try:
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+            print(f"Created index on {field_name} for {collection_name}")
+        except Exception as e:
+            # Index might already exist, that's fine
+            if "already exists" not in str(e).lower():
+                print(f"Note: Index on {field_name} for {collection_name}: {e}")
 
     async def add_documents(
         self,
