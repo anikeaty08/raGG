@@ -1,21 +1,39 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from contextlib import asynccontextmanager
 import uuid
+import asyncio
+from datetime import datetime
 
 from app.config import get_settings
 
 # Global instances (initialized on startup)
 vector_store = None
 query_engine = None
+cleanup_task = None
+
+
+async def periodic_cleanup():
+    """Background task to cleanup expired sources every 10 minutes."""
+    while True:
+        try:
+            await asyncio.sleep(600)  # Wait 10 minutes
+            if vector_store:
+                deleted = vector_store.cleanup_expired_sources()
+                if deleted > 0:
+                    print(f"[{datetime.utcnow().isoformat()}] Auto-cleanup: Deleted {deleted} expired source(s)")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Error in periodic cleanup: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize components on startup."""
-    global vector_store, query_engine
+    global vector_store, query_engine, cleanup_task
 
     try:
         from app.rag.vectorstore import VectorStore
@@ -24,16 +42,34 @@ async def lifespan(app: FastAPI):
         vector_store = VectorStore()
         query_engine = RAGQueryEngine(vector_store)
         print("Successfully connected to Qdrant Cloud!")
+
+        # Start background cleanup task
+        cleanup_task = asyncio.create_task(periodic_cleanup())
+        print("Started periodic cleanup task (runs every 10 minutes)")
+
+        # Run initial cleanup
+        deleted = vector_store.cleanup_expired_sources()
+        if deleted > 0:
+            print(f"Initial cleanup: Deleted {deleted} expired source(s)")
+
     except Exception as e:
         print(f"Warning: Could not initialize vector store: {e}")
         print("App will start but ingestion/query features may not work.")
 
     yield
 
+    # Cleanup on shutdown
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="RAG Study Assistant API",
-    description="Ingest GitHub repos, PDFs, and web content. Ask questions with cited answers.",
+    description="Ingest GitHub repos, PDFs, and web content. Ask questions with cited answers. Data auto-deletes after 1 hour.",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -81,11 +117,17 @@ class SourceInfo(BaseModel):
     name: str
     type: str
     chunks: int
+    created_at: Optional[str] = None
+    expires_at: Optional[str] = None
 
 class IngestResponse(BaseModel):
     message: str
     source_id: str
     chunks_created: int
+
+class CleanupResponse(BaseModel):
+    deleted: int
+    message: str
 
 
 # ========================
@@ -97,7 +139,8 @@ async def health_check():
     return {
         "status": "healthy",
         "version": "1.0.0",
-        "vector_store": "connected" if vector_store else "not connected"
+        "vector_store": "connected" if vector_store else "not connected",
+        "data_retention_hours": 1
     }
 
 
@@ -236,3 +279,16 @@ async def clear_all_sources():
 
     vector_store.clear_all()
     return {"message": "All sources cleared"}
+
+
+@app.post("/sources/cleanup", response_model=CleanupResponse)
+async def cleanup_expired():
+    """Manually trigger cleanup of expired sources."""
+    if not vector_store:
+        raise HTTPException(status_code=503, detail="Vector store not initialized")
+
+    deleted = vector_store.cleanup_expired_sources()
+    return CleanupResponse(
+        deleted=deleted,
+        message=f"Cleanup complete. Deleted {deleted} expired source(s)."
+    )
