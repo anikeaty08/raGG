@@ -89,11 +89,12 @@ class VectorStore:
         chunks: list[dict],
         source_id: str,
         source_name: str,
-        source_type: str
+        source_type: str,
+        user_id: str = "default"
     ) -> None:
         """
         Add document chunks to the vector store.
-        Includes timestamp for auto-cleanup.
+        Includes timestamp for auto-cleanup and user_id for isolation.
         """
         if not chunks:
             return
@@ -124,6 +125,7 @@ class VectorStore:
             clean_metadata["content"] = chunk["content"]
             clean_metadata["created_at"] = created_at
             clean_metadata["expires_at"] = expires_at
+            clean_metadata["user_id"] = user_id
 
             points.append(PointStruct(
                 id=str(uuid.uuid4()),
@@ -140,7 +142,7 @@ class VectorStore:
                 points=batch
             )
 
-        # Track source metadata with timestamps
+        # Track source metadata with timestamps and user_id
         source_embedding = self.embeddings.embed_text(source_name)
         self.client.upsert(
             collection_name=self.SOURCES_COLLECTION,
@@ -152,7 +154,8 @@ class VectorStore:
                     "type": source_type,
                     "chunks": len(chunks),
                     "created_at": created_at,
-                    "expires_at": expires_at
+                    "expires_at": expires_at,
+                    "user_id": user_id
                 }
             )]
         )
