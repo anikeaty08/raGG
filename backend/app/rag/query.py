@@ -12,11 +12,18 @@ client = genai.Client(api_key=settings.gemini_api_key)
 
 
 class RAGQueryEngine:
-    """RAG Query Engine using Gemini 2.0 Flash."""
+    """RAG Query Engine using Gemini 2.5 models (free tier)."""
+
+    # Models to try in order (Gemini 2.5 first, then fallbacks)
+    MODELS = [
+        "gemini-2.5-flash",      # Latest and best - free tier available
+        "gemini-2.5-flash-lite", # Higher rate limits on free tier
+        "gemini-2.0-flash",      # Fallback
+    ]
 
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
-        self.model = "gemini-2.0-flash"
+        self.model = self.MODELS[0]  # Start with Gemini 2.5 Flash
         self.conversations: dict[str, list] = defaultdict(list)
 
     async def query(
@@ -67,16 +74,28 @@ Question: {question}
 
 Answer:"""
 
-            # Generate response
-            try:
-                response = client.models.generate_content(
-                    model=self.model,
-                    contents=prompt
-                )
-                answer = response.text if response.text else "Sorry, I couldn't generate a response."
-            except Exception as e:
-                print(f"Gemini generation error: {e}")
-                answer = f"Error generating response. Please try again."
+            # Generate response with fallback models
+            answer = None
+            last_error = None
+
+            for model in self.MODELS:
+                try:
+                    print(f"Trying model: {model}")
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=prompt
+                    )
+                    answer = response.text if response.text else "Sorry, I couldn't generate a response."
+                    self.model = model  # Remember working model
+                    break
+                except Exception as e:
+                    last_error = e
+                    print(f"Model {model} failed: {e}")
+                    continue
+
+            if answer is None:
+                print(f"All models failed. Last error: {last_error}")
+                answer = f"Error generating response. Please check your API key and try again."
 
             # Format citations
             citations = []
