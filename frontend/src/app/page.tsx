@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MessageSquare, Database, Github, FileText, Globe, ArrowRight, Sparkles, Zap, Shield, Clock } from 'lucide-react'
+import { MessageSquare, Database, Github, FileText, Globe, ArrowRight, Sparkles, Zap, Shield, Clock, BookOpen, Brain, Code } from 'lucide-react'
 import { listSources, healthCheck, Source } from '@/lib/api'
-import toast from 'react-hot-toast'
 
 export default function Dashboard() {
   const [sources, setSources] = useState<Source[]>([])
@@ -40,85 +39,104 @@ export default function Dashboard() {
     {
       icon: Zap,
       title: 'Lightning Fast',
-      description: 'Get instant answers powered by semantic search and AI',
-      color: 'from-yellow-500 to-orange-500',
+      description: 'Get instant answers powered by semantic search and Gemini AI',
+      color: 'from-amber-500 to-orange-500',
+      bgColor: 'from-amber-500/10 to-orange-500/10',
     },
     {
       icon: Shield,
       title: 'Accurate Citations',
-      description: 'Every answer comes with source references',
-      color: 'from-green-500 to-emerald-500',
+      description: 'Every answer includes source references you can verify',
+      color: 'from-emerald-500 to-teal-500',
+      bgColor: 'from-emerald-500/10 to-teal-500/10',
     },
     {
       icon: Clock,
       title: 'Auto Cleanup',
-      description: 'Data automatically expires after 1 hour for privacy',
+      description: 'Your data is automatically deleted after 1 hour for privacy',
       color: 'from-blue-500 to-cyan-500',
+      bgColor: 'from-blue-500/10 to-cyan-500/10',
+    },
+  ]
+
+  const sourceTypes = [
+    {
+      icon: Github,
+      title: 'GitHub Repos',
+      description: 'Import any public repository',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+    },
+    {
+      icon: FileText,
+      title: 'PDF Documents',
+      description: 'Upload study materials & papers',
+      color: 'text-rose-400',
+      bgColor: 'bg-rose-500/10',
+    },
+    {
+      icon: Globe,
+      title: 'Web Pages',
+      description: 'Scrape documentation & articles',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
     },
   ]
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-            isHealthy === null ? 'bg-yellow-500/20 text-yellow-400' :
-            isHealthy ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${
-              isHealthy === null ? 'bg-yellow-400' :
-              isHealthy ? 'bg-green-400' : 'bg-red-400'
-            }`} />
-            {isHealthy === null ? 'Checking...' : isHealthy ? 'Connected' : 'Disconnected'}
+      {/* Hero Section */}
+      <div className="relative mb-12 p-8 rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
+              isHealthy === null ? 'bg-yellow-500/20 text-yellow-400' :
+              isHealthy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                isHealthy === null ? 'bg-yellow-400 animate-pulse' :
+                isHealthy ? 'bg-emerald-400' : 'bg-red-400'
+              }`} />
+              {isHealthy === null ? 'Connecting...' : isHealthy ? 'System Online' : 'Disconnected'}
+            </div>
+          </div>
+
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">
+            Welcome to <span className="gradient-text">RAG Study Assistant</span>
+          </h1>
+          <p className="text-lg text-[#94a3b8] max-w-2xl mb-6">
+            Your AI-powered study companion. Upload your materials and get instant, cited answers powered by Gemini 2.5.
+          </p>
+
+          <div className="flex flex-wrap gap-3">
+            <Link href="/chat" className="btn-primary">
+              <MessageSquare className="w-4 h-4" />
+              Start Chatting
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link href="/sources" className="btn-secondary">
+              <Database className="w-4 h-4" />
+              Add Sources
+            </Link>
           </div>
         </div>
-        <p className="text-[#94a3b8]">Welcome to your AI-powered study assistant</p>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <Link href="/chat" className="card card-interactive group">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Start Chatting</h3>
-                <p className="text-sm text-[#94a3b8]">Ask questions about your sources</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-[#64748b] group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </div>
-        </Link>
-
-        <Link href="/sources" className="card card-interactive group">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Manage Sources</h3>
-                <p className="text-sm text-[#94a3b8]">Add GitHub repos, PDFs, or URLs</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-[#64748b] group-hover:text-white group-hover:translate-x-1 transition-all" />
-          </div>
-        </Link>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
         <div className="stat-card">
           <div className="stat-card-value">{loading ? '-' : stats.totalSources}</div>
           <div className="stat-card-label">Total Sources</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-value">{loading ? '-' : stats.totalChunks}</div>
-          <div className="stat-card-label">Total Chunks</div>
+          <div className="stat-card-value">{loading ? '-' : stats.totalChunks.toLocaleString()}</div>
+          <div className="stat-card-label">Knowledge Chunks</div>
         </div>
         <div className="stat-card">
           <div className="flex items-center gap-2">
@@ -143,13 +161,42 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Source Types */}
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-indigo-400" />
+          Supported Sources
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {sourceTypes.map((type, i) => (
+            <Link
+              key={i}
+              href="/sources"
+              className="card card-interactive group flex items-center gap-4"
+            >
+              <div className={`w-12 h-12 rounded-xl ${type.bgColor} flex items-center justify-center`}>
+                <type.icon className={`w-6 h-6 ${type.color}`} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold">{type.title}</h3>
+                <p className="text-sm text-[#94a3b8]">{type.description}</p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-[#64748b] group-hover:text-white group-hover:translate-x-1 transition-all" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* Features */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Features</h2>
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Code className="w-5 h-5 text-indigo-400" />
+          Powerful Features
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {features.map((feature, i) => (
-            <div key={i} className="card">
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4`}>
+            <div key={i} className={`card bg-gradient-to-br ${feature.bgColor} border-transparent`}>
+              <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 shadow-lg`}>
                 <feature.icon className="w-5 h-5 text-white" />
               </div>
               <h3 className="font-semibold mb-2">{feature.title}</h3>
@@ -163,29 +210,39 @@ export default function Dashboard() {
       {sources.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Recent Sources</h2>
-            <Link href="/sources" className="text-sm text-indigo-400 hover:text-indigo-300 transition">
-              View All
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-400" />
+              Recent Sources
+            </h2>
+            <Link href="/sources" className="text-sm text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
+              View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
           <div className="space-y-2">
             {sources.slice(0, 5).map((source) => (
-              <div key={source.id} className="card py-3 px-4 flex items-center justify-between">
+              <div key={source.id} className="card py-3 px-4 flex items-center justify-between hover:border-indigo-500/30 transition-colors">
                 <div className="flex items-center gap-3">
-                  <span className={`badge ${
-                    source.type === 'github' ? 'badge-github' :
-                    source.type === 'pdf' ? 'badge-pdf' : 'badge-web'
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    source.type === 'github' ? 'bg-purple-500/20' :
+                    source.type === 'pdf' ? 'bg-rose-500/20' : 'bg-emerald-500/20'
                   }`}>
-                    {source.type === 'github' ? <Github className="w-3 h-3" /> :
-                     source.type === 'pdf' ? <FileText className="w-3 h-3" /> :
-                     <Globe className="w-3 h-3" />}
-                    {source.type}
-                  </span>
-                  <span className="text-sm font-medium truncate max-w-[200px] md:max-w-[400px]">
-                    {source.name}
-                  </span>
+                    {source.type === 'github' ? <Github className="w-5 h-5 text-purple-400" /> :
+                     source.type === 'pdf' ? <FileText className="w-5 h-5 text-rose-400" /> :
+                     <Globe className="w-5 h-5 text-emerald-400" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium truncate max-w-[200px] md:max-w-[400px]">
+                      {source.name}
+                    </p>
+                    <p className="text-xs text-[#64748b]">{source.chunks} chunks</p>
+                  </div>
                 </div>
-                <span className="text-xs text-[#64748b]">{source.chunks} chunks</span>
+                <span className={`badge ${
+                  source.type === 'github' ? 'badge-github' :
+                  source.type === 'pdf' ? 'badge-pdf' : 'badge-web'
+                }`}>
+                  {source.type}
+                </span>
               </div>
             ))}
           </div>
@@ -194,18 +251,24 @@ export default function Dashboard() {
 
       {/* Empty State */}
       {!loading && sources.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <Sparkles className="w-10 h-10 text-indigo-400" />
+        <div className="card text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-indigo-400" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No sources yet</h3>
+          <h3 className="text-xl font-semibold mb-2">Ready to learn smarter?</h3>
           <p className="text-[#94a3b8] mb-6 max-w-md mx-auto">
-            Add your first source to get started. You can add GitHub repositories, PDF files, or web URLs.
+            Add your first source to unlock AI-powered answers with citations. You can also chat without sources!
           </p>
-          <Link href="/sources" className="btn-primary">
-            <Database className="w-4 h-4" />
-            Add Your First Source
-          </Link>
+          <div className="flex justify-center gap-3">
+            <Link href="/sources" className="btn-primary">
+              <Database className="w-4 h-4" />
+              Add Sources
+            </Link>
+            <Link href="/chat" className="btn-secondary">
+              <MessageSquare className="w-4 h-4" />
+              Start Chatting
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -48,10 +48,7 @@ export default function ChatPage() {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
 
-    if (sources.length === 0) {
-      toast.error('Please add a source first')
-      return
-    }
+    // Allow chat even without sources (general chat mode)
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -166,14 +163,14 @@ export default function ChatPage() {
                   adjustTextareaHeight()
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={sources.length === 0 ? 'Add a source first to start chatting...' : 'Ask anything about your sources...'}
-                disabled={sources.length === 0 || isLoading}
+                placeholder={sources.length === 0 ? 'Ask me anything! Add sources for cited answers...' : 'Ask anything about your sources...'}
+                disabled={isLoading}
                 rows={1}
                 className="flex-1 bg-transparent resize-none outline-none text-white placeholder-[#64748b] px-4 py-3 max-h-40 min-h-[52px]"
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isLoading || sources.length === 0}
+                disabled={!input.trim() || isLoading}
                 className="p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
               >
                 {isLoading ? (
@@ -211,16 +208,18 @@ function WelcomeScreen({ sources, sourcesLoading }: { sources: Source[]; sources
         {sourcesLoading
           ? 'Loading your sources...'
           : sources.length === 0
-          ? 'Add your first source to start asking questions. You can add GitHub repos, PDFs, or web URLs.'
-          : `You have ${sources.length} source${sources.length > 1 ? 's' : ''} loaded. Start asking questions!`
+          ? 'Start chatting! Add sources like GitHub repos, PDFs, or URLs for answers with citations.'
+          : `You have ${sources.length} source${sources.length > 1 ? 's' : ''} loaded. Ask me anything!`
         }
       </p>
 
       {!sourcesLoading && sources.length === 0 && (
-        <Link href="/sources" className="btn-primary">
-          <Database className="w-4 h-4" />
-          Add Your First Source
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/sources" className="btn-secondary">
+            <Database className="w-4 h-4" />
+            Add Sources
+          </Link>
+        </div>
       )}
 
       {!sourcesLoading && sources.length > 0 && (

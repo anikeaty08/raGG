@@ -43,11 +43,9 @@ class RAGQueryEngine:
                 source_filter=source_filter
             )
 
+            # If no sources, use general chat mode (no RAG, just Gemini)
             if not results:
-                return (
-                    "I couldn't find any relevant information. Please add some sources first.",
-                    []
-                )
+                return await self._general_chat(question)
 
             # Build context
             context_parts = []
@@ -148,3 +146,40 @@ Answer:"""
             return str(metadata.get("url", source_name))
 
         return source_name
+
+    async def _general_chat(self, question: str) -> tuple[str, list[dict]]:
+        """Handle general chat when no sources are available."""
+        prompt = f"""You are a helpful AI study assistant. The user hasn't uploaded any documents yet,
+so answer their question using your general knowledge. Be helpful, concise, and accurate.
+
+If they ask about specific documents or sources, politely remind them they can upload
+GitHub repos, PDFs, or web URLs to get answers with citations.
+
+User's question: {question}
+
+Answer:"""
+
+        answer = None
+        last_error = None
+
+        for model in self.MODELS:
+            try:
+                print(f"General chat - Trying model: {model}")
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                answer = response.text if response.text else "Sorry, I couldn't generate a response."
+                self.model = model
+                break
+            except Exception as e:
+                last_error = e
+                print(f"Model {model} failed: {e}")
+                continue
+
+        if answer is None:
+            print(f"All models failed. Last error: {last_error}")
+            answer = "I'm having trouble connecting. Please try again in a moment."
+
+        # No citations for general chat
+        return answer, []
