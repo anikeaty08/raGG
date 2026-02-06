@@ -1,10 +1,11 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct,
-    Filter, FieldCondition, MatchValue, PointIdsList
+    Filter, FieldCondition, MatchValue, PointIdsList, Range
 )
 import uuid
 from typing import Optional
+from datetime import datetime, timedelta
 
 from app.config import get_settings
 from app.rag.embeddings import GeminiEmbeddings
@@ -16,11 +17,13 @@ class VectorStore:
     """
     Qdrant Cloud vector store for document storage and retrieval.
     Free tier: 1GB storage, perfect for study projects.
+    Includes auto-cleanup of data after 1 hour.
     """
 
     COLLECTION_NAME = "rag_documents"
     SOURCES_COLLECTION = "sources_metadata"
     VECTOR_SIZE = 768  # Gemini embedding size
+    DATA_RETENTION_HOURS = 1  # Auto-delete after 1 hour
 
     def __init__(self):
         # Initialize Qdrant Cloud client
@@ -73,9 +76,14 @@ class VectorStore:
     ) -> None:
         """
         Add document chunks to the vector store.
+        Includes timestamp for auto-cleanup.
         """
         if not chunks:
             return
+
+        # Current timestamp for data retention
+        created_at = datetime.utcnow().isoformat()
+        expires_at = (datetime.utcnow() + timedelta(hours=self.DATA_RETENTION_HOURS)).isoformat()
 
         # Extract texts for embedding
         texts = [chunk["content"] for chunk in chunks]
@@ -97,6 +105,8 @@ class VectorStore:
             clean_metadata["source_name"] = source_name
             clean_metadata["source_type"] = source_type
             clean_metadata["content"] = chunk["content"]
+            clean_metadata["created_at"] = created_at
+            clean_metadata["expires_at"] = expires_at
 
             points.append(PointStruct(
                 id=str(uuid.uuid4()),
@@ -113,7 +123,7 @@ class VectorStore:
                 points=batch
             )
 
-        # Track source metadata
+        # Track source metadata with timestamps
         source_embedding = self.embeddings.embed_text(source_name)
         self.client.upsert(
             collection_name=self.SOURCES_COLLECTION,
@@ -123,7 +133,9 @@ class VectorStore:
                 payload={
                     "name": source_name,
                     "type": source_type,
-                    "chunks": len(chunks)
+                    "chunks": len(chunks),
+                    "created_at": created_at,
+                    "expires_at": expires_at
                 }
             )]
         )
@@ -193,7 +205,9 @@ class VectorStore:
                         "id": str(point.id),
                         "name": payload.get("name", "Unknown"),
                         "type": payload.get("type", "unknown"),
-                        "chunks": payload.get("chunks", 0)
+                        "chunks": payload.get("chunks", 0),
+                        "created_at": payload.get("created_at"),
+                        "expires_at": payload.get("expires_at")
                     })
 
             return sources
@@ -236,6 +250,31 @@ class VectorStore:
             )
         except Exception:
             pass
+
+    def cleanup_expired_sources(self) -> int:
+        """
+        Delete all sources that have expired (older than DATA_RETENTION_HOURS).
+        Returns the number of sources deleted.
+        """
+        try:
+            current_time = datetime.utcnow().isoformat()
+            deleted_count = 0
+
+            # Get all sources
+            sources = self.list_sources()
+
+            for source in sources:
+                expires_at = source.get("expires_at")
+                if expires_at and expires_at < current_time:
+                    # Source has expired, delete it
+                    self.delete_source(source["id"])
+                    deleted_count += 1
+                    print(f"Auto-deleted expired source: {source['name']}")
+
+            return deleted_count
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+            return 0
 
     def clear_all(self) -> None:
         """
