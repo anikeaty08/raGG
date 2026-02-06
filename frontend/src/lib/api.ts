@@ -1,15 +1,27 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-// Generate or retrieve unique user ID for data isolation
-function getUserId(): string {
-  if (typeof window === 'undefined') return 'default'
+// Get auth state for API calls
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
 
+  // Try to get token from auth store
+  const authData = localStorage.getItem('rag-auth')
+  if (authData) {
+    try {
+      const parsed = JSON.parse(authData)
+      if (parsed.state?.token) {
+        return { 'Authorization': `Bearer ${parsed.state.token}` }
+      }
+    } catch {}
+  }
+
+  // Fall back to X-User-ID header
   let userId = localStorage.getItem('rag_user_id')
   if (!userId) {
     userId = 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
     localStorage.setItem('rag_user_id', userId)
   }
-  return userId
+  return { 'X-User-ID': userId }
 }
 
 export interface Source {
@@ -52,12 +64,12 @@ async function apiCall<T>(
   options?: RequestInit
 ): Promise<T> {
   try {
-    const userId = getUserId()
+    const authHeaders = getAuthHeaders()
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'X-User-ID': userId,
+        ...authHeaders,
         ...options?.headers,
       },
     })
@@ -94,12 +106,10 @@ export const ingestPDF = async (file: File): Promise<IngestResponse> => {
   const formData = new FormData()
   formData.append('file', file)
 
-  const userId = getUserId()
+  const authHeaders = getAuthHeaders()
   const response = await fetch(`${API_URL}/ingest/pdf`, {
     method: 'POST',
-    headers: {
-      'X-User-ID': userId,
-    },
+    headers: authHeaders,
     body: formData,
   })
 
@@ -161,6 +171,22 @@ export const cleanupExpiredSources = async (): Promise<{ deleted: number }> => {
   })
 }
 
+// Get auth config from backend
+export const getAuthConfig = async (): Promise<{ google_client_id: string; auth_enabled: boolean }> => {
+  return apiCall<{ google_client_id: string; auth_enabled: boolean }>('/auth/config')
+}
+
+// Get current user info
+export const getCurrentUser = async (): Promise<{
+  user_id: string
+  email: string
+  name: string
+  picture: string
+  authenticated: boolean
+}> => {
+  return apiCall('/auth/me')
+}
+
 export default {
   healthCheck,
   ingestGitHub,
@@ -171,4 +197,6 @@ export default {
   deleteSource,
   clearAllSources,
   cleanupExpiredSources,
+  getAuthConfig,
+  getCurrentUser,
 }

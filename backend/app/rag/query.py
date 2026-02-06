@@ -59,20 +59,23 @@ class RAGQueryEngine:
             context = "\n\n---\n\n".join(context_parts)
 
             # Build prompt
-            prompt = f"""You are a helpful study assistant. Answer based ONLY on the provided context.
+            prompt = f"""You are a friendly and knowledgeable study tutor helping a student learn.
 
-Rules:
-1. Only use information from the context below
-2. Cite sources using [Source N] notation
-3. If info is not in context, say so
-4. Be concise but thorough
+Your job:
+- Answer the question naturally and conversationally, like a helpful teacher would
+- Use the context provided to inform your answer
+- Explain concepts clearly with examples when helpful
+- If the question has a typo (like "cllass" instead of "class"), understand what they meant and answer accordingly
+- Don't be robotic - be warm and engaging
+- Keep citations minimal - only add [Source N] at the end if directly quoting or for specific facts
+- If the context doesn't have enough info, use your knowledge to help but mention what came from the sources
 
-Context:
+Context from uploaded materials:
 {context}
 
-Question: {question}
+Student's question: {question}
 
-Answer:"""
+Give a helpful, natural response:"""
 
             # Generate response with fallback models
             answer = None
@@ -151,15 +154,16 @@ Answer:"""
 
     async def _general_chat(self, question: str) -> tuple[str, list[dict]]:
         """Handle general chat when no sources are available."""
-        prompt = f"""You are a helpful AI study assistant. The user hasn't uploaded any documents yet,
-so answer their question using your general knowledge. Be helpful, concise, and accurate.
+        prompt = f"""You are a friendly and knowledgeable study tutor. Answer the student's question naturally and helpfully.
 
-If they ask about specific documents or sources, politely remind them they can upload
-GitHub repos, PDFs, or web URLs to get answers with citations.
+- Be conversational and warm, like a helpful teacher
+- Explain concepts clearly with examples
+- If they ask about something that would benefit from their own materials, gently suggest they can upload PDFs, GitHub repos, or URLs for personalized answers
+- Keep responses focused and easy to understand
 
-User's question: {question}
+Student's question: {question}
 
-Answer:"""
+Your helpful response:"""
 
         answer = None
         last_error = None

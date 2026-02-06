@@ -21,8 +21,8 @@ class VectorStore:
     Includes auto-cleanup of data after 1 hour.
     """
 
-    COLLECTION_NAME = "rag_documents"
-    SOURCES_COLLECTION = "sources_metadata"
+    COLLECTION_NAME = "rag_documents_v2"  # New version with user_id index
+    SOURCES_COLLECTION = "sources_metadata_v2"  # New version with user_id index
     DATA_RETENTION_HOURS = 1  # Auto-delete after 1 hour
 
     def __init__(self):

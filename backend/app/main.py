@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Header
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -8,11 +8,7 @@ import asyncio
 from datetime import datetime
 
 from app.config import get_settings
-
-
-def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
-    """Extract user ID from header or generate a default."""
-    return x_user_id or "default"
+from app.auth import get_user_id, get_current_user, GOOGLE_CLIENT_ID
 
 # Global instances (initialized on startup)
 vector_store = None
@@ -149,16 +145,49 @@ async def health_check():
 
 
 # ========================
+# Auth Endpoints
+# ========================
+
+@app.get("/auth/config")
+async def get_auth_config():
+    """Get auth configuration for frontend."""
+    return {
+        "google_client_id": GOOGLE_CLIENT_ID,
+        "auth_enabled": bool(GOOGLE_CLIENT_ID)
+    }
+
+
+@app.get("/auth/me")
+async def get_me(
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
+    """Get current user info."""
+    user = get_current_user(authorization)
+    return {
+        "user_id": user.get("user_id", x_user_id or "anonymous"),
+        "email": user.get("email", ""),
+        "name": user.get("name", "Guest"),
+        "picture": user.get("picture", ""),
+        "authenticated": bool(authorization and GOOGLE_CLIENT_ID)
+    }
+
+
+# ========================
 # Ingest Endpoints
 # ========================
 
 @app.post("/ingest/github", response_model=IngestResponse)
-async def ingest_github(request: GitHubIngestRequest, x_user_id: Optional[str] = Header(None)):
+async def ingest_github(
+    request: GitHubIngestRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Ingest a public GitHub repository."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
 
     try:
         from app.ingest.github import ingest_github_repo
@@ -178,7 +207,11 @@ async def ingest_github(request: GitHubIngestRequest, x_user_id: Optional[str] =
 
 
 @app.post("/ingest/pdf", response_model=IngestResponse)
-async def ingest_pdf_file(file: UploadFile = File(...), x_user_id: Optional[str] = Header(None)):
+async def ingest_pdf_file(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Upload and ingest a PDF file."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
@@ -186,7 +219,7 @@ async def ingest_pdf_file(file: UploadFile = File(...), x_user_id: Optional[str]
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="File must be a PDF")
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
 
     try:
         from app.ingest.pdf import ingest_pdf
@@ -207,12 +240,16 @@ async def ingest_pdf_file(file: UploadFile = File(...), x_user_id: Optional[str]
 
 
 @app.post("/ingest/url", response_model=IngestResponse)
-async def ingest_web_url(request: URLIngestRequest, x_user_id: Optional[str] = Header(None)):
+async def ingest_web_url(
+    request: URLIngestRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Scrape and ingest content from a web URL."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
 
     try:
         from app.ingest.web import ingest_url
@@ -235,13 +272,17 @@ async def ingest_web_url(request: URLIngestRequest, x_user_id: Optional[str] = H
 # ========================
 
 @app.post("/query", response_model=QueryResponse)
-async def query(request: QueryRequest, x_user_id: Optional[str] = Header(None)):
+async def query(
+    request: QueryRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Ask a question and get an answer with citations."""
     if not query_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
 
     session_id = request.session_id or str(uuid.uuid4())
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
 
     try:
         answer, citations = await query_engine.query(
@@ -264,23 +305,30 @@ async def query(request: QueryRequest, x_user_id: Optional[str] = Header(None)):
 # ========================
 
 @app.get("/sources", response_model=list[SourceInfo])
-async def list_sources(x_user_id: Optional[str] = Header(None)):
+async def list_sources(
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """List all ingested sources for the current user."""
     if not vector_store:
         return []
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
     sources = vector_store.list_sources(user_id)
     return [SourceInfo(**s) for s in sources]
 
 
 @app.delete("/sources/{source_id}")
-async def delete_source(source_id: str, x_user_id: Optional[str] = Header(None)):
+async def delete_source(
+    source_id: str,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Delete a source and its chunks (only if owned by user)."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
 
     try:
         vector_store.delete_source(source_id, user_id)
@@ -290,12 +338,15 @@ async def delete_source(source_id: str, x_user_id: Optional[str] = Header(None))
 
 
 @app.delete("/sources")
-async def clear_all_sources(x_user_id: Optional[str] = Header(None)):
+async def clear_all_sources(
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
     """Delete all sources for the current user."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    user_id = x_user_id or "default"
+    user_id = get_user_id(authorization, x_user_id)
     # Get user's sources and delete them one by one
     sources = vector_store.list_sources(user_id)
     for source in sources:
