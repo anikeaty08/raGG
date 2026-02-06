@@ -190,7 +190,7 @@ export default function RootLayout({
 
                   {/* Right - Made with */}
                   <div className="flex items-center gap-1.5 text-sm text-[#64748b]">
-                    Made with <Heart className="w-4 h-4 text-red-400 fill-red-400" /> using AI
+                    Made with <Heart className="w-4 h-4 text-red-400 fill-red-400" />{' '}by Aniket
                   </div>
                 </div>
 
