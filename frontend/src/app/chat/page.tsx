@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database } from 'lucide-react'
-import { query, listSources, Source, Citation } from '@/lib/api'
+import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText } from 'lucide-react'
+import { query, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation } from '@/lib/api'
 import toast from 'react-hot-toast'
 import ReactMarkdown from 'react-markdown'
 
@@ -22,8 +22,15 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sources, setSources] = useState<Source[]>([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
+  const [showUploadPanel, setShowUploadPanel] = useState(false)
+  const [uploadType, setUploadType] = useState<'pdf' | 'github' | 'url' | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [githubUrl, setGithubUrl] = useState('')
+  const [githubBranch, setGithubBranch] = useState('main')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchSources()
@@ -47,8 +54,6 @@ export default function ChatPage() {
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
-
-    // Allow chat even without sources (general chat mode)
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -103,6 +108,68 @@ export default function ChatPage() {
     }
   }
 
+  // Upload handlers
+  const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.pdf')) {
+      toast.error('Please select a PDF file')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const result = await ingestPDF(file)
+      toast.success(`Uploaded ${file.name} (${result.chunks_created} chunks)`)
+      fetchSources()
+      setShowUploadPanel(false)
+      setUploadType(null)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload PDF')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleURLSubmit = async () => {
+    if (!urlInput.trim()) return
+
+    setUploading(true)
+    try {
+      const result = await ingestURL(urlInput.trim())
+      toast.success(`Added URL (${result.chunks_created} chunks)`)
+      fetchSources()
+      setUrlInput('')
+      setShowUploadPanel(false)
+      setUploadType(null)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add URL')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleGitHubSubmit = async () => {
+    if (!githubUrl.trim()) return
+
+    setUploading(true)
+    try {
+      const result = await ingestGitHub(githubUrl.trim(), githubBranch)
+      toast.success(`Added repo (${result.chunks_created} chunks)`)
+      fetchSources()
+      setGithubUrl('')
+      setGithubBranch('main')
+      setShowUploadPanel(false)
+      setUploadType(null)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add repository')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
@@ -137,7 +204,7 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-4xl mx-auto">
           {messages.length === 0 ? (
-            <WelcomeScreen sources={sources} sourcesLoading={sourcesLoading} />
+            <WelcomeScreen sources={sources} sourcesLoading={sourcesLoading} onAddSource={() => setShowUploadPanel(true)} />
           ) : (
             <div className="space-y-6">
               {messages.map((message) => (
@@ -150,11 +217,141 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* Upload Panel */}
+      {showUploadPanel && (
+        <div className="border-t border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/95 backdrop-blur-xl p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-sm">Add Source</h3>
+              <button onClick={() => { setShowUploadPanel(false); setUploadType(null) }} className="text-[#64748b] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!uploadType ? (
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setUploadType('pdf')}
+                  className="card card-interactive p-4 flex flex-col items-center gap-2"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-rose-400" />
+                  </div>
+                  <span className="text-sm font-medium">PDF</span>
+                </button>
+                <button
+                  onClick={() => setUploadType('url')}
+                  className="card card-interactive p-4 flex flex-col items-center gap-2"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                    <Globe className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <span className="text-sm font-medium">Website</span>
+                </button>
+                <button
+                  onClick={() => setUploadType('github')}
+                  className="card card-interactive p-4 flex flex-col items-center gap-2"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Github className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span className="text-sm font-medium">GitHub</span>
+                </button>
+              </div>
+            ) : uploadType === 'pdf' ? (
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePDFUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full card card-interactive p-6 border-dashed flex flex-col items-center gap-2"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-rose-400" />
+                  )}
+                  <span className="text-sm">{uploading ? 'Uploading...' : 'Click to select PDF'}</span>
+                </button>
+                <button onClick={() => setUploadType(null)} className="text-sm text-[#64748b] hover:text-white">
+                  Back
+                </button>
+              </div>
+            ) : uploadType === 'url' ? (
+              <div className="space-y-3">
+                <input
+                  type="url"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => setUploadType(null)} className="btn-ghost text-sm">
+                    Back
+                  </button>
+                  <button
+                    onClick={handleURLSubmit}
+                    disabled={uploading || !urlInput.trim()}
+                    className="btn-primary flex-1"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add URL'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="url"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/user/repo"
+                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                />
+                <input
+                  type="text"
+                  value={githubBranch}
+                  onChange={(e) => setGithubBranch(e.target.value)}
+                  placeholder="Branch (default: main)"
+                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => setUploadType(null)} className="btn-ghost text-sm">
+                    Back
+                  </button>
+                  <button
+                    onClick={handleGitHubSubmit}
+                    disabled={uploading || !githubUrl.trim()}
+                    className="btn-primary flex-1"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Repo'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="border-t border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-4">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="glass rounded-2xl p-2 focus-within:border-indigo-500/50 transition-all">
             <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowUploadPanel(!showUploadPanel)}
+                className={`p-3 rounded-xl transition-all ${showUploadPanel ? 'bg-indigo-500/20 text-indigo-400' : 'text-[#64748b] hover:text-white hover:bg-[rgba(255,255,255,0.05)]'}`}
+                title="Add source"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -166,7 +363,7 @@ export default function ChatPage() {
                 placeholder={sources.length === 0 ? 'Ask me anything! Add sources for cited answers...' : 'Ask anything about your sources...'}
                 disabled={isLoading}
                 rows={1}
-                className="flex-1 bg-transparent resize-none outline-none text-white placeholder-[#64748b] px-4 py-3 max-h-40 min-h-[52px]"
+                className="flex-1 bg-transparent resize-none outline-none text-white placeholder-[#64748b] px-2 py-3 max-h-40 min-h-[52px]"
               />
               <button
                 type="submit"
@@ -190,7 +387,7 @@ export default function ChatPage() {
   )
 }
 
-function WelcomeScreen({ sources, sourcesLoading }: { sources: Source[]; sourcesLoading: boolean }) {
+function WelcomeScreen({ sources, sourcesLoading, onAddSource }: { sources: Source[]; sourcesLoading: boolean; onAddSource: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       <div className="relative mb-8">
@@ -215,10 +412,10 @@ function WelcomeScreen({ sources, sourcesLoading }: { sources: Source[]; sources
 
       {!sourcesLoading && sources.length === 0 && (
         <div className="flex gap-3">
-          <Link href="/sources" className="btn-secondary">
-            <Database className="w-4 h-4" />
-            Add Sources
-          </Link>
+          <button onClick={onAddSource} className="btn-primary">
+            <Plus className="w-4 h-4" />
+            Add Source
+          </button>
         </div>
       )}
 

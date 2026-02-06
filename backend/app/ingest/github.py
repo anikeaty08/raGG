@@ -34,7 +34,8 @@ MAX_FILE_SIZE = 500 * 1024
 async def ingest_github_repo(
     url: str,
     branch: str,
-    vector_store: VectorStore
+    vector_store: VectorStore,
+    user_id: str = "default"
 ) -> tuple[str, int]:
     """
     Clone and ingest a public GitHub repository.
@@ -116,7 +117,7 @@ async def ingest_github_repo(
             raise ValueError("No processable files found in repository")
 
         # Add to vector store
-        await vector_store.add_documents(all_chunks, source_id, repo_name, "github")
+        await vector_store.add_documents(all_chunks, source_id, repo_name, "github", user_id)
 
         return source_id, len(all_chunks)
 

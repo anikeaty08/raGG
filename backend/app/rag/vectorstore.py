@@ -164,25 +164,33 @@ class VectorStore:
         self,
         query: str,
         top_k: int = 5,
-        source_filter: Optional[str] = None
+        source_filter: Optional[str] = None,
+        user_id: str = "default"
     ) -> list[dict]:
         """
         Search for relevant documents using Qdrant query_points API.
+        Filters by user_id to ensure data isolation.
         """
         # Generate query embedding
         query_embedding = self.embeddings.embed_query(query)
 
-        # Build filter if source specified
-        search_filter = None
-        if source_filter:
-            search_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="source_id",
-                        match=MatchValue(value=source_filter)
-                    )
-                ]
+        # Build filter - always filter by user_id
+        filter_conditions = [
+            FieldCondition(
+                key="user_id",
+                match=MatchValue(value=user_id)
             )
+        ]
+
+        if source_filter:
+            filter_conditions.append(
+                FieldCondition(
+                    key="source_id",
+                    match=MatchValue(value=source_filter)
+                )
+            )
+
+        search_filter = Filter(must=filter_conditions)
 
         # Search using query_points (new Qdrant API)
         results = self.client.query_points(
@@ -205,14 +213,22 @@ class VectorStore:
 
         return formatted
 
-    def list_sources(self) -> list[dict]:
+    def list_sources(self, user_id: str = "default") -> list[dict]:
         """
-        List all ingested sources.
+        List all ingested sources for a specific user.
         """
         try:
-            # Scroll through all sources
+            # Scroll through sources filtered by user_id
             results = self.client.scroll(
                 collection_name=self.SOURCES_COLLECTION,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=user_id)
+                        )
+                    ]
+                ),
                 limit=100,
                 with_payload=True
             )
@@ -235,11 +251,11 @@ class VectorStore:
             print(f"Error listing sources: {e}")
             return []
 
-    def delete_source(self, source_id: str) -> None:
+    def delete_source(self, source_id: str, user_id: str = "default") -> None:
         """
-        Delete a source and all its chunks.
+        Delete a source and all its chunks (only if owned by user).
         """
-        # First, find all point IDs with this source_id
+        # First, find all point IDs with this source_id AND user_id
         results = self.client.scroll(
             collection_name=self.COLLECTION_NAME,
             scroll_filter=Filter(
@@ -247,6 +263,10 @@ class VectorStore:
                     FieldCondition(
                         key="source_id",
                         match=MatchValue(value=source_id)
+                    ),
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=user_id)
                     )
                 ]
             ),
@@ -271,6 +291,34 @@ class VectorStore:
         except Exception:
             pass
 
+    def _list_all_sources(self) -> list[dict]:
+        """
+        List ALL sources (for cleanup purposes only).
+        """
+        try:
+            results = self.client.scroll(
+                collection_name=self.SOURCES_COLLECTION,
+                limit=1000,
+                with_payload=True
+            )
+
+            sources = []
+            if results and results[0]:
+                for point in results[0]:
+                    payload = point.payload or {}
+                    sources.append({
+                        "id": str(point.id),
+                        "name": payload.get("name", "Unknown"),
+                        "type": payload.get("type", "unknown"),
+                        "user_id": payload.get("user_id", "default"),
+                        "expires_at": payload.get("expires_at")
+                    })
+
+            return sources
+        except Exception as e:
+            print(f"Error listing all sources: {e}")
+            return []
+
     def cleanup_expired_sources(self) -> int:
         """
         Delete all sources that have expired (older than DATA_RETENTION_HOURS).
@@ -280,14 +328,15 @@ class VectorStore:
             current_time = datetime.utcnow().isoformat()
             deleted_count = 0
 
-            # Get all sources
-            sources = self.list_sources()
+            # Get all sources (not filtered by user)
+            sources = self._list_all_sources()
 
             for source in sources:
                 expires_at = source.get("expires_at")
                 if expires_at and expires_at < current_time:
                     # Source has expired, delete it
-                    self.delete_source(source["id"])
+                    user_id = source.get("user_id", "default")
+                    self.delete_source(source["id"], user_id)
                     deleted_count += 1
                     print(f"Auto-deleted expired source: {source['name']}")
 

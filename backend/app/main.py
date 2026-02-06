@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -8,6 +8,11 @@ import asyncio
 from datetime import datetime
 
 from app.config import get_settings
+
+
+def get_user_id(x_user_id: Optional[str] = Header(None)) -> str:
+    """Extract user ID from header or generate a default."""
+    return x_user_id or "default"
 
 # Global instances (initialized on startup)
 vector_store = None
@@ -148,17 +153,20 @@ async def health_check():
 # ========================
 
 @app.post("/ingest/github", response_model=IngestResponse)
-async def ingest_github(request: GitHubIngestRequest):
+async def ingest_github(request: GitHubIngestRequest, x_user_id: Optional[str] = Header(None)):
     """Ingest a public GitHub repository."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
+
+    user_id = x_user_id or "default"
 
     try:
         from app.ingest.github import ingest_github_repo
         source_id, chunks = await ingest_github_repo(
             url=request.url,
             branch=request.branch,
-            vector_store=vector_store
+            vector_store=vector_store,
+            user_id=user_id
         )
         return IngestResponse(
             message=f"Successfully ingested repository",
@@ -170,7 +178,7 @@ async def ingest_github(request: GitHubIngestRequest):
 
 
 @app.post("/ingest/pdf", response_model=IngestResponse)
-async def ingest_pdf_file(file: UploadFile = File(...)):
+async def ingest_pdf_file(file: UploadFile = File(...), x_user_id: Optional[str] = Header(None)):
     """Upload and ingest a PDF file."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
@@ -178,13 +186,16 @@ async def ingest_pdf_file(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="File must be a PDF")
 
+    user_id = x_user_id or "default"
+
     try:
         from app.ingest.pdf import ingest_pdf
         content = await file.read()
         source_id, chunks = await ingest_pdf(
             content=content,
             filename=file.filename,
-            vector_store=vector_store
+            vector_store=vector_store,
+            user_id=user_id
         )
         return IngestResponse(
             message=f"Successfully ingested PDF: {file.filename}",
@@ -196,16 +207,19 @@ async def ingest_pdf_file(file: UploadFile = File(...)):
 
 
 @app.post("/ingest/url", response_model=IngestResponse)
-async def ingest_web_url(request: URLIngestRequest):
+async def ingest_web_url(request: URLIngestRequest, x_user_id: Optional[str] = Header(None)):
     """Scrape and ingest content from a web URL."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
+
+    user_id = x_user_id or "default"
 
     try:
         from app.ingest.web import ingest_url
         source_id, chunks = await ingest_url(
             url=request.url,
-            vector_store=vector_store
+            vector_store=vector_store,
+            user_id=user_id
         )
         return IngestResponse(
             message=f"Successfully ingested URL",
@@ -221,18 +235,20 @@ async def ingest_web_url(request: URLIngestRequest):
 # ========================
 
 @app.post("/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, x_user_id: Optional[str] = Header(None)):
     """Ask a question and get an answer with citations."""
     if not query_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
 
     session_id = request.session_id or str(uuid.uuid4())
+    user_id = x_user_id or "default"
 
     try:
         answer, citations = await query_engine.query(
             question=request.question,
             session_id=session_id,
-            top_k=request.top_k
+            top_k=request.top_k,
+            user_id=user_id
         )
         return QueryResponse(
             answer=answer,
@@ -248,36 +264,43 @@ async def query(request: QueryRequest):
 # ========================
 
 @app.get("/sources", response_model=list[SourceInfo])
-async def list_sources():
-    """List all ingested sources."""
+async def list_sources(x_user_id: Optional[str] = Header(None)):
+    """List all ingested sources for the current user."""
     if not vector_store:
         return []
 
-    sources = vector_store.list_sources()
+    user_id = x_user_id or "default"
+    sources = vector_store.list_sources(user_id)
     return [SourceInfo(**s) for s in sources]
 
 
 @app.delete("/sources/{source_id}")
-async def delete_source(source_id: str):
-    """Delete a source and its chunks."""
+async def delete_source(source_id: str, x_user_id: Optional[str] = Header(None)):
+    """Delete a source and its chunks (only if owned by user)."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
+    user_id = x_user_id or "default"
+
     try:
-        vector_store.delete_source(source_id)
+        vector_store.delete_source(source_id, user_id)
         return {"message": f"Source {source_id} deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.delete("/sources")
-async def clear_all_sources():
-    """Delete all sources and reset the vector store."""
+async def clear_all_sources(x_user_id: Optional[str] = Header(None)):
+    """Delete all sources for the current user."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    vector_store.clear_all()
-    return {"message": "All sources cleared"}
+    user_id = x_user_id or "default"
+    # Get user's sources and delete them one by one
+    sources = vector_store.list_sources(user_id)
+    for source in sources:
+        vector_store.delete_source(source["id"], user_id)
+    return {"message": "All your sources cleared"}
 
 
 @app.post("/sources/cleanup", response_model=CleanupResponse)

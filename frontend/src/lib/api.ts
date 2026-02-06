@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// Generate or retrieve unique user ID for data isolation
+function getUserId(): string {
+  if (typeof window === 'undefined') return 'default'
+
+  let userId = localStorage.getItem('rag_user_id')
+  if (!userId) {
+    userId = 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+    localStorage.setItem('rag_user_id', userId)
+  }
+  return userId
+}
+
 export interface Source {
   id: string
   name: string
@@ -40,10 +52,12 @@ async function apiCall<T>(
   options?: RequestInit
 ): Promise<T> {
   try {
+    const userId = getUserId()
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'X-User-ID': userId,
         ...options?.headers,
       },
     })
@@ -80,8 +94,12 @@ export const ingestPDF = async (file: File): Promise<IngestResponse> => {
   const formData = new FormData()
   formData.append('file', file)
 
+  const userId = getUserId()
   const response = await fetch(`${API_URL}/ingest/pdf`, {
     method: 'POST',
+    headers: {
+      'X-User-ID': userId,
+    },
     body: formData,
   })
 

@@ -31,16 +31,18 @@ class RAGQueryEngine:
         question: str,
         session_id: str,
         top_k: int = 5,
-        source_filter: Optional[str] = None
+        source_filter: Optional[str] = None,
+        user_id: str = "default"
     ) -> tuple[str, list[dict]]:
         """Process a query and return answer with citations."""
 
         try:
-            # Retrieve relevant chunks
+            # Retrieve relevant chunks (filtered by user_id)
             results = await self.vector_store.search(
                 query=question,
                 top_k=top_k,
-                source_filter=source_filter
+                source_filter=source_filter,
+                user_id=user_id
             )
 
             # If no sources, use general chat mode (no RAG, just Gemini)

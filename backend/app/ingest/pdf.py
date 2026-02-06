@@ -10,7 +10,8 @@ from app.rag.vectorstore import VectorStore
 async def ingest_pdf(
     content: bytes,
     filename: str,
-    vector_store: VectorStore
+    vector_store: VectorStore,
+    user_id: str = "default"
 ) -> tuple[str, int]:
     """
     Extract text from PDF and ingest into vector store.
@@ -19,6 +20,7 @@ async def ingest_pdf(
         content: PDF file bytes
         filename: Original filename
         vector_store: VectorStore instance
+        user_id: User ID for data isolation
 
     Returns:
         tuple: (source_id, number_of_chunks)
@@ -60,7 +62,7 @@ async def ingest_pdf(
             raise ValueError("No text content found in PDF")
 
         # Add to vector store
-        await vector_store.add_documents(all_chunks, source_id, filename, "pdf")
+        await vector_store.add_documents(all_chunks, source_id, filename, "pdf", user_id)
 
         return source_id, len(all_chunks)
 

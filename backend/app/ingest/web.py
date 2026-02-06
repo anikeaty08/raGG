@@ -9,7 +9,8 @@ from app.rag.vectorstore import VectorStore
 
 async def ingest_url(
     url: str,
-    vector_store: VectorStore
+    vector_store: VectorStore,
+    user_id: str = "default"
 ) -> tuple[str, int]:
     """
     Scrape and ingest content from a web URL.
@@ -17,6 +18,7 @@ async def ingest_url(
     Args:
         url: Web URL to scrape
         vector_store: VectorStore instance
+        user_id: User ID for data isolation
 
     Returns:
         tuple: (source_id, number_of_chunks)
@@ -79,6 +81,6 @@ async def ingest_url(
         chunk["metadata"]["url"] = url
 
     # Add to vector store
-    await vector_store.add_documents(chunks, source_id, source_name, "web")
+    await vector_store.add_documents(chunks, source_id, source_name, "web", user_id)
 
     return source_id, len(chunks)
