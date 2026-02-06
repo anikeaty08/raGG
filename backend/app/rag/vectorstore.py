@@ -22,7 +22,6 @@ class VectorStore:
 
     COLLECTION_NAME = "rag_documents"
     SOURCES_COLLECTION = "sources_metadata"
-    VECTOR_SIZE = 768  # Gemini embedding size
     DATA_RETENTION_HOURS = 1  # Auto-delete after 1 hour
 
     def __init__(self):
@@ -33,36 +32,54 @@ class VectorStore:
             timeout=60
         )
 
-        # Initialize embeddings
+        # Initialize embeddings first to get the vector size
         self.embeddings = GeminiEmbeddings()
+        self.vector_size = self.embeddings.VECTOR_SIZE
 
         # Create collections if they don't exist
         self._init_collections()
 
     def _init_collections(self):
-        """Initialize Qdrant collections."""
+        """Initialize Qdrant collections with correct vector size."""
         try:
             collections = [c.name for c in self.client.get_collections().collections]
+
+            # Check if existing collection has wrong vector size
+            if self.COLLECTION_NAME in collections:
+                try:
+                    info = self.client.get_collection(self.COLLECTION_NAME)
+                    existing_size = info.config.params.vectors.size
+                    if existing_size != self.vector_size:
+                        print(f"Vector size mismatch: existing={existing_size}, required={self.vector_size}")
+                        print("Recreating collections with correct vector size...")
+                        self.client.delete_collection(self.COLLECTION_NAME)
+                        self.client.delete_collection(self.SOURCES_COLLECTION)
+                        collections = []  # Force recreation
+                except Exception as e:
+                    print(f"Error checking collection: {e}")
 
             # Main documents collection
             if self.COLLECTION_NAME not in collections:
                 self.client.create_collection(
                     collection_name=self.COLLECTION_NAME,
                     vectors_config=VectorParams(
-                        size=self.VECTOR_SIZE,
+                        size=self.vector_size,
                         distance=Distance.COSINE
                     )
                 )
+                print(f"Created collection {self.COLLECTION_NAME} with vector size {self.vector_size}")
 
             # Sources metadata collection
             if self.SOURCES_COLLECTION not in collections:
                 self.client.create_collection(
                     collection_name=self.SOURCES_COLLECTION,
                     vectors_config=VectorParams(
-                        size=self.VECTOR_SIZE,
+                        size=self.vector_size,
                         distance=Distance.COSINE
                     )
                 )
+                print(f"Created collection {self.SOURCES_COLLECTION} with vector size {self.vector_size}")
+
         except Exception as e:
             print(f"Error initializing collections: {e}")
             raise
@@ -147,7 +164,7 @@ class VectorStore:
         source_filter: Optional[str] = None
     ) -> list[dict]:
         """
-        Search for relevant documents.
+        Search for relevant documents using Qdrant query_points API.
         """
         # Generate query embedding
         query_embedding = self.embeddings.embed_query(query)
@@ -164,10 +181,10 @@ class VectorStore:
                 ]
             )
 
-        # Search
-        results = self.client.search(
+        # Search using query_points (new Qdrant API)
+        results = self.client.query_points(
             collection_name=self.COLLECTION_NAME,
-            query_vector=query_embedding,
+            query=query_embedding,
             query_filter=search_filter,
             limit=top_k,
             with_payload=True
@@ -175,12 +192,12 @@ class VectorStore:
 
         # Format results
         formatted = []
-        for result in results:
-            payload = result.payload or {}
+        for point in results.points:
+            payload = point.payload or {}
             formatted.append({
                 "content": payload.get("content", ""),
                 "metadata": {k: v for k, v in payload.items() if k != "content"},
-                "score": result.score
+                "score": point.score
             })
 
         return formatted
