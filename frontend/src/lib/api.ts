@@ -187,6 +187,24 @@ export const getCurrentUser = async (): Promise<{
   return apiCall('/auth/me')
 }
 
+// Model settings
+export interface ModelConfig {
+  provider: string
+  model: string
+  available_providers: string[]
+}
+
+export const getModelSettings = async (): Promise<ModelConfig> => {
+  return apiCall<ModelConfig>('/settings/model')
+}
+
+export const setModelSettings = async (provider: string, model?: string): Promise<ModelConfig & { message: string }> => {
+  return apiCall('/settings/model', {
+    method: 'POST',
+    body: JSON.stringify({ provider, model }),
+  })
+}
+
 export default {
   healthCheck,
   ingestGitHub,

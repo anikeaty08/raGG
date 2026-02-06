@@ -365,3 +365,36 @@ async def cleanup_expired():
         deleted=deleted,
         message=f"Cleanup complete. Deleted {deleted} expired source(s)."
     )
+
+
+# ========================
+# Model Settings
+# ========================
+
+class ModelConfig(BaseModel):
+    provider: str
+    model: Optional[str] = None
+
+@app.get("/settings/model")
+async def get_model_settings():
+    """Get current LLM model configuration."""
+    if not query_engine:
+        raise HTTPException(status_code=503, detail="Query engine not initialized")
+
+    return query_engine.get_current_config()
+
+
+@app.post("/settings/model")
+async def set_model_settings(config: ModelConfig):
+    """Switch LLM provider/model."""
+    if not query_engine:
+        raise HTTPException(status_code=503, detail="Query engine not initialized")
+
+    try:
+        query_engine.set_provider(config.provider, config.model)
+        return {
+            "message": f"Switched to {config.provider}",
+            **query_engine.get_current_config()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

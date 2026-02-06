@@ -1,14 +1,42 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Server, Clock, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Info } from 'lucide-react'
-import { healthCheck, clearAllSources, HealthStatus } from '@/lib/api'
+import { Settings, Server, Clock, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Info, Cpu, Sparkles } from 'lucide-react'
+import { healthCheck, clearAllSources, getModelSettings, setModelSettings, HealthStatus, ModelConfig } from '@/lib/api'
 import toast from 'react-hot-toast'
+
+const MODEL_INFO = {
+  gemini: {
+    name: 'Gemini 2.5',
+    description: 'Google\'s latest AI model - fast and accurate',
+    icon: '✨',
+    color: 'from-blue-500 to-cyan-500',
+    models: [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Best balance of speed and quality' },
+      { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', desc: 'Faster, higher rate limits' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', desc: 'Previous generation fallback' },
+    ]
+  },
+  groq: {
+    name: 'LLaMA 3.1 (Groq)',
+    description: 'Meta\'s open-source model - runs ultra fast on Groq',
+    icon: '🦙',
+    color: 'from-orange-500 to-red-500',
+    models: [
+      { id: 'llama-3.1-70b-versatile', name: 'LLaMA 3.1 70B', desc: 'Most capable, best quality' },
+      { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B', desc: 'Fastest response times' },
+      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', desc: 'Great for longer contexts' },
+    ]
+  }
+}
 
 export default function SettingsPage() {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [checking, setChecking] = useState(true)
   const [clearing, setClearing] = useState(false)
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null)
+  const [loadingModel, setLoadingModel] = useState(true)
+  const [switchingModel, setSwitchingModel] = useState(false)
 
   const checkHealth = async () => {
     setChecking(true)
@@ -22,9 +50,35 @@ export default function SettingsPage() {
     }
   }
 
+  const loadModelConfig = async () => {
+    setLoadingModel(true)
+    try {
+      const config = await getModelSettings()
+      setModelConfig(config)
+    } catch (error) {
+      console.error('Failed to load model config:', error)
+    } finally {
+      setLoadingModel(false)
+    }
+  }
+
   useEffect(() => {
     checkHealth()
+    loadModelConfig()
   }, [])
+
+  const handleSwitchModel = async (provider: string, model?: string) => {
+    setSwitchingModel(true)
+    try {
+      const result = await setModelSettings(provider, model)
+      setModelConfig(result)
+      toast.success(`Switched to ${MODEL_INFO[provider as keyof typeof MODEL_INFO]?.name || provider}`)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to switch model')
+    } finally {
+      setSwitchingModel(false)
+    }
+  }
 
   const handleClearAll = async () => {
     if (!confirm('Are you sure you want to delete ALL data? This will remove all sources and cannot be undone.')) {
@@ -48,6 +102,100 @@ export default function SettingsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-[#94a3b8]">Configure your RAG Study Assistant</p>
+      </div>
+
+      {/* AI Model Selection */}
+      <div className="card mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+              <Cpu className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-semibold">AI Model</h2>
+              <p className="text-sm text-[#64748b]">Choose your LLM provider</p>
+            </div>
+          </div>
+          {loadingModel && <Loader2 className="w-5 h-5 animate-spin text-[#64748b]" />}
+        </div>
+
+        {!loadingModel && modelConfig && (
+          <div className="space-y-4">
+            {/* Provider Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(MODEL_INFO).map(([key, info]) => {
+                const isActive = modelConfig.provider === key
+                const isAvailable = modelConfig.available_providers.includes(key)
+
+                return (
+                  <button
+                    key={key}
+                    onClick={() => !isActive && isAvailable && handleSwitchModel(key)}
+                    disabled={!isAvailable || switchingModel}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      isActive
+                        ? 'border-indigo-500 bg-indigo-500/10'
+                        : isAvailable
+                        ? 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.02)]'
+                        : 'border-[rgba(255,255,255,0.05)] opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-2xl">{info.icon}</span>
+                      <div>
+                        <h3 className="font-semibold flex items-center gap-2">
+                          {info.name}
+                          {isActive && (
+                            <span className="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full">Active</span>
+                          )}
+                        </h3>
+                        <p className="text-xs text-[#64748b]">{info.description}</p>
+                      </div>
+                    </div>
+                    {!isAvailable && (
+                      <p className="text-xs text-amber-400 mt-2">API key not configured</p>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Current Model */}
+            <div className="bg-[rgba(255,255,255,0.02)] rounded-xl p-4">
+              <p className="text-sm text-[#64748b] mb-2">Current Model</p>
+              <p className="text-white font-medium">{modelConfig.model}</p>
+            </div>
+
+            {/* Model Variants */}
+            {modelConfig.provider && MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO] && (
+              <div>
+                <p className="text-sm text-[#64748b] mb-3">Available Models</p>
+                <div className="space-y-2">
+                  {MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => handleSwitchModel(modelConfig.provider, model.id)}
+                      disabled={switchingModel || modelConfig.model === model.id}
+                      className={`w-full p-3 rounded-lg text-left flex items-center justify-between transition-all ${
+                        modelConfig.model === model.id
+                          ? 'bg-indigo-500/20 border border-indigo-500/50'
+                          : 'bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]'
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{model.name}</p>
+                        <p className="text-xs text-[#64748b]">{model.desc}</p>
+                      </div>
+                      {modelConfig.model === model.id && (
+                        <CheckCircle className="w-5 h-5 text-indigo-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Server Status */}
@@ -129,21 +277,9 @@ export default function SettingsPage() {
               <h3 className="font-medium text-amber-400 mb-1">Auto-Cleanup Enabled</h3>
               <p className="text-sm text-[#94a3b8]">
                 For your privacy, all uploaded data (PDFs, GitHub repos, web pages) is automatically
-                deleted <strong className="text-white">1 hour</strong> after it was added. This ensures
-                your study materials don't persist on the server indefinitely.
+                deleted <strong className="text-white">1 hour</strong> after it was added.
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[#94a3b8]">Retention Period</span>
-            <span className="text-white font-medium">1 Hour</span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[#94a3b8]">Cleanup Frequency</span>
-            <span className="text-white font-medium">Every 10 Minutes</span>
           </div>
         </div>
       </div>
@@ -164,7 +300,7 @@ export default function SettingsPage() {
           <div>
             <h3 className="font-medium mb-1">Clear All Data</h3>
             <p className="text-sm text-[#64748b]">
-              Delete all sources and clear the vector store. This cannot be undone.
+              Delete all sources and clear the vector store.
             </p>
           </div>
           <button
@@ -184,42 +320,6 @@ export default function SettingsPage() {
               </>
             )}
           </button>
-        </div>
-      </div>
-
-      {/* About */}
-      <div className="card mt-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Settings className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="font-semibold">About</h2>
-            <p className="text-sm text-[#64748b]">Application information</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.08)]">
-            <span className="text-[#94a3b8]">Application</span>
-            <span className="text-white">RAG Study Assistant</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.08)]">
-            <span className="text-[#94a3b8]">Version</span>
-            <span className="text-white font-mono">1.0.0</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.08)]">
-            <span className="text-[#94a3b8]">AI Model</span>
-            <span className="text-white">Gemini 2.0 Flash</span>
-          </div>
-          <div className="flex items-center justify-between py-2 border-b border-[rgba(255,255,255,0.08)]">
-            <span className="text-[#94a3b8]">Embeddings</span>
-            <span className="text-white">Gemini Text Embedding 004</span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[#94a3b8]">Vector Database</span>
-            <span className="text-white">Qdrant Cloud</span>
-          </div>
         </div>
       </div>
     </div>

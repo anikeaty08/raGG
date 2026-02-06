@@ -1,30 +1,56 @@
 from google import genai
+from groq import Groq
 from typing import Optional
 from collections import defaultdict
+import os
 
 from app.config import get_settings
 from app.rag.vectorstore import VectorStore
 
 settings = get_settings()
 
-# Initialize client
-client = genai.Client(api_key=settings.gemini_api_key)
+# Initialize clients
+gemini_client = genai.Client(api_key=settings.gemini_api_key)
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
 
 
 class RAGQueryEngine:
-    """RAG Query Engine using Gemini 2.5 models (free tier)."""
+    """RAG Query Engine supporting multiple LLM providers."""
 
-    # Models to try in order (Gemini 2.5 first, then fallbacks)
-    MODELS = [
-        "gemini-2.5-flash",      # Latest and best - free tier available
-        "gemini-2.5-flash-lite", # Higher rate limits on free tier
-        "gemini-2.0-flash",      # Fallback
-    ]
+    # Available providers and their models
+    PROVIDERS = {
+        "gemini": {
+            "models": ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"],
+            "default": "gemini-2.5-flash"
+        },
+        "groq": {
+            "models": ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+            "default": "llama-3.1-70b-versatile"
+        }
+    }
 
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
-        self.model = self.MODELS[0]  # Start with Gemini 2.5 Flash
         self.conversations: dict[str, list] = defaultdict(list)
+
+        # Set default provider based on available API keys
+        if os.getenv("GROQ_API_KEY"):
+            self.provider = "groq"
+            self.model = self.PROVIDERS["groq"]["default"]
+        else:
+            self.provider = "gemini"
+            self.model = self.PROVIDERS["gemini"]["default"]
+
+        print(f"RAG Engine initialized with provider: {self.provider}, model: {self.model}")
+
+    def set_provider(self, provider: str, model: str = None):
+        """Switch LLM provider."""
+        if provider not in self.PROVIDERS:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        self.provider = provider
+        self.model = model or self.PROVIDERS[provider]["default"]
+        print(f"Switched to provider: {self.provider}, model: {self.model}")
 
     async def query(
         self,
@@ -45,7 +71,7 @@ class RAGQueryEngine:
                 user_id=user_id
             )
 
-            # If no sources, use general chat mode (no RAG, just Gemini)
+            # If no sources, use general chat mode
             if not results:
                 return await self._general_chat(question)
 
@@ -77,28 +103,8 @@ Student's question: {question}
 
 Give a helpful, natural response:"""
 
-            # Generate response with fallback models
-            answer = None
-            last_error = None
-
-            for model in self.MODELS:
-                try:
-                    print(f"Trying model: {model}")
-                    response = client.models.generate_content(
-                        model=model,
-                        contents=prompt
-                    )
-                    answer = response.text if response.text else "Sorry, I couldn't generate a response."
-                    self.model = model  # Remember working model
-                    break
-                except Exception as e:
-                    last_error = e
-                    print(f"Model {model} failed: {e}")
-                    continue
-
-            if answer is None:
-                print(f"All models failed. Last error: {last_error}")
-                answer = f"Error generating response. Please check your API key and try again."
+            # Generate response
+            answer = await self._generate(prompt)
 
             # Format citations
             citations = []
@@ -130,6 +136,51 @@ Give a helpful, natural response:"""
         except Exception as e:
             print(f"Query error: {e}")
             return f"An error occurred: {str(e)}", []
+
+    async def _generate(self, prompt: str) -> str:
+        """Generate response using the current provider."""
+
+        if self.provider == "groq":
+            return await self._generate_groq(prompt)
+        else:
+            return await self._generate_gemini(prompt)
+
+    async def _generate_gemini(self, prompt: str) -> str:
+        """Generate using Gemini."""
+        for model in self.PROVIDERS["gemini"]["models"]:
+            try:
+                print(f"Trying Gemini model: {model}")
+                response = gemini_client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                return response.text if response.text else "Sorry, I couldn't generate a response."
+            except Exception as e:
+                print(f"Gemini model {model} failed: {e}")
+                continue
+
+        return "Error: All Gemini models failed. Please check your API key."
+
+    async def _generate_groq(self, prompt: str) -> str:
+        """Generate using Groq (LLaMA)."""
+        for model in self.PROVIDERS["groq"]["models"]:
+            try:
+                print(f"Trying Groq model: {model}")
+                response = groq_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful, friendly study tutor."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=2048
+                )
+                return response.choices[0].message.content or "Sorry, I couldn't generate a response."
+            except Exception as e:
+                print(f"Groq model {model} failed: {e}")
+                continue
+
+        return "Error: All Groq models failed. Please check your API key."
 
     def _format_source_info(self, metadata: dict) -> str:
         """Format source information for display."""
@@ -165,27 +216,13 @@ Student's question: {question}
 
 Your helpful response:"""
 
-        answer = None
-        last_error = None
-
-        for model in self.MODELS:
-            try:
-                print(f"General chat - Trying model: {model}")
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt
-                )
-                answer = response.text if response.text else "Sorry, I couldn't generate a response."
-                self.model = model
-                break
-            except Exception as e:
-                last_error = e
-                print(f"Model {model} failed: {e}")
-                continue
-
-        if answer is None:
-            print(f"All models failed. Last error: {last_error}")
-            answer = "I'm having trouble connecting. Please try again in a moment."
-
-        # No citations for general chat
+        answer = await self._generate(prompt)
         return answer, []
+
+    def get_current_config(self) -> dict:
+        """Get current provider configuration."""
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "available_providers": list(self.PROVIDERS.keys())
+        }
