@@ -100,6 +100,7 @@ class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
     top_k: int = 5
+    source_filter: Optional[str] = None
 
 class Citation(BaseModel):
     source: str
@@ -289,6 +290,7 @@ async def query(
             question=request.question,
             session_id=session_id,
             top_k=request.top_k,
+            source_filter=request.source_filter,
             user_id=user_id
         )
         return QueryResponse(
@@ -398,3 +400,13 @@ async def set_model_settings(config: ModelConfig):
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/conversations/{session_id}/clear")
+async def clear_conversation(session_id: str):
+    """Clear conversation history for a session."""
+    if not query_engine:
+        raise HTTPException(status_code=503, detail="Query engine not initialized")
+    
+    query_engine.clear_conversation(session_id)
+    return {"message": "Conversation cleared"}

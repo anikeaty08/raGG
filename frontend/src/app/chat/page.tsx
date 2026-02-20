@@ -2,10 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText } from 'lucide-react'
-import { query, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation } from '@/lib/api'
+import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText, Cpu, CheckCircle, MessageSquare, Edit2, MoreVertical, Copy, RotateCcw, Download, Search } from 'lucide-react'
+import { query, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig } from '@/lib/api'
+import { sessionManager, ChatSession } from '@/lib/sessionManager'
+import { exportToJSON, exportToMarkdown, exportToPDF } from '@/lib/utils/export'
 import toast from 'react-hot-toast'
 import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface Message {
   id: string
@@ -13,6 +17,8 @@ interface Message {
   content: string
   citations?: Citation[]
   timestamp: Date
+  error?: boolean
+  errorMessage?: string
 }
 
 export default function ChatPage() {
@@ -28,17 +34,301 @@ export default function ChatPage() {
   const [urlInput, setUrlInput] = useState('')
   const [githubUrl, setGithubUrl] = useState('')
   const [githubBranch, setGithubBranch] = useState('main')
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null)
+  const [showModelSelector, setShowModelSelector] = useState(false)
+  const [switchingModel, setSwitchingModel] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [showSessionsPanel, setShowSessionsPanel] = useState(false)
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [editingSessionName, setEditingSessionName] = useState('')
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingMessageContent, setEditingMessageContent] = useState('')
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const modelSelectorRef = useRef<HTMLDivElement>(null)
+  const sessionsPanelRef = useRef<HTMLDivElement>(null)
+
+  const MODEL_INFO = {
+    gemini: {
+      name: 'Gemini 2.5',
+      icon: '✨',
+      models: [
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
+        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      ]
+    },
+    groq: {
+      name: 'LLaMA 3.1',
+      icon: '🦙',
+      models: [
+        { id: 'llama-3.1-70b-versatile', name: 'LLaMA 3.1 70B' },
+        { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B' },
+        { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
+      ]
+    }
+  }
 
   useEffect(() => {
     fetchSources()
+    loadModelConfig()
+    loadSessions()
+    // Create initial session if none exists
+    const allSessions = sessionManager.getAllSessions()
+    if (allSessions.length === 0) {
+      const newSession = sessionManager.createSession()
+      setCurrentSessionId(newSession.id)
+      setSessions([newSession])
+    } else {
+      setCurrentSessionId(allSessions[0].id)
+      setSessions(allSessions)
+      loadSessionData(allSessions[0].id)
+    }
   }, [])
+
+  useEffect(() => {
+    // Save current session when messages or sessionId changes
+    if (currentSessionId) {
+      sessionManager.updateSession(currentSessionId, {
+        messages,
+        sessionId
+      })
+      setSessions(sessionManager.getAllSessions())
+    }
+  }, [messages, sessionId, currentSessionId])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sessionsPanelRef.current && !sessionsPanelRef.current.contains(event.target as Node)) {
+        setShowSessionsPanel(false)
+      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false)
+      }
+    }
+    if (showSessionsPanel || showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSessionsPanel, showExportMenu])
+
+  const handleExport = (format: 'json' | 'markdown' | 'pdf') => {
+    if (messages.length === 0) {
+      toast.error('No messages to export')
+      return
+    }
+    
+    const sessionName = currentSessionId 
+      ? sessions.find(s => s.id === currentSessionId)?.name || 'Chat'
+      : 'Chat'
+    
+    try {
+      switch (format) {
+        case 'json':
+          exportToJSON(messages, sessionName)
+          toast.success('Exported as JSON')
+          break
+        case 'markdown':
+          exportToMarkdown(messages, sessionName)
+          toast.success('Exported as Markdown')
+          break
+        case 'pdf':
+          exportToPDF(messages, sessionName)
+          toast.success('Opening PDF preview...')
+          break
+      }
+      setShowExportMenu(false)
+    } catch (error) {
+      toast.error('Failed to export chat')
+      console.error(error)
+    }
+  }
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modelSelectorRef.current && !modelSelectorRef.current.contains(event.target as Node)) {
+        setShowModelSelector(false)
+      }
+    }
+    if (showModelSelector) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showModelSelector])
+
+  const loadModelConfig = async () => {
+    try {
+      const config = await getModelSettings()
+      setModelConfig(config)
+    } catch (error) {
+      console.error('Failed to load model config:', error)
+    }
+  }
+
+  const loadSessions = () => {
+    const allSessions = sessionManager.getAllSessions()
+    setSessions(allSessions)
+  }
+
+  const loadSessionData = (sessionId: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (session) {
+      setMessages(session.messages || [])
+      setSessionId(session.sessionId)
+    }
+  }
+
+  const switchSession = (sessionId: string) => {
+    // Save current session before switching
+    if (currentSessionId) {
+      sessionManager.updateSession(currentSessionId, {
+        messages,
+        sessionId
+      })
+    }
+    setCurrentSessionId(sessionId)
+    loadSessionData(sessionId)
+    setShowSessionsPanel(false)
+  }
+
+  const createNewSession = () => {
+    const newSession = sessionManager.createSession()
+    setCurrentSessionId(newSession.id)
+    setMessages([])
+    setSessionId(null)
+    loadSessions()
+    setShowSessionsPanel(false)
+    toast.success('New chat created')
+  }
+
+  const deleteSession = (sessionId: string) => {
+    if (sessions.length === 1) {
+      toast.error('Cannot delete the last session')
+      return
+    }
+    sessionManager.deleteSession(sessionId)
+    loadSessions()
+    if (currentSessionId === sessionId) {
+      const remaining = sessions.filter(s => s.id !== sessionId)
+      if (remaining.length > 0) {
+        switchSession(remaining[0].id)
+      }
+    }
+    toast.success('Session deleted')
+  }
+
+  const startEditingSession = (sessionId: string) => {
+    const session = sessionManager.getSession(sessionId)
+    if (session) {
+      setEditingSessionId(sessionId)
+      setEditingSessionName(session.name)
+    }
+  }
+
+  const saveSessionName = () => {
+    if (editingSessionId && editingSessionName.trim()) {
+      sessionManager.renameSession(editingSessionId, editingSessionName.trim())
+      loadSessions()
+      setEditingSessionId(null)
+      setEditingSessionName('')
+      toast.success('Session renamed')
+    }
+  }
+
+  const handleSwitchModel = async (provider: string, model?: string) => {
+    setSwitchingModel(true)
+    try {
+      const result = await setModelSettings(provider, model)
+      setModelConfig(result)
+      setShowModelSelector(false)
+      toast.success(`Switched to ${MODEL_INFO[provider as keyof typeof MODEL_INFO]?.name || provider}`)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to switch model')
+    } finally {
+      setSwitchingModel(false)
+    }
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // Allow Ctrl/Cmd + Enter to send
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault()
+          handleSubmit()
+          return
+        }
+        // Allow Ctrl/Cmd + K to focus input (if not already focused)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          if (document.activeElement !== inputRef.current) {
+            e.preventDefault()
+            inputRef.current?.focus()
+          }
+          return
+        }
+        return
+      }
+
+      // Global shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        createNewSession()
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault()
+        if (messages.length > 0) {
+          setShowExportMenu(true)
+        }
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setShowSearch(true)
+        setTimeout(() => searchInputRef.current?.focus(), 0)
+      }
+      
+      if (e.key === 'Escape') {
+        setShowSessionsPanel(false)
+        setShowModelSelector(false)
+        setShowExportMenu(false)
+        setShowUploadPanel(false)
+        setShowSearch(false)
+        setSearchQuery('')
+        if (editingMessageId) {
+          setEditingMessageId(null)
+          setEditingMessageContent('')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [messages.length, editingMessageId])
 
   const fetchSources = async () => {
     try {
@@ -51,24 +341,26 @@ export default function ChatPage() {
     }
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent, customQuestion?: string) => {
     e?.preventDefault()
-    if (!input.trim() || isLoading) return
+    const question = customQuestion || input.trim()
+    if (!question || isLoading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: question,
       timestamp: new Date(),
     }
 
     setMessages(prev => [...prev, userMessage])
-    const userInput = input.trim()
-    setInput('')
+    if (!customQuestion) {
+      setInput('')
+    }
     setIsLoading(true)
 
     try {
-      const response = await query(userInput, sessionId || undefined)
+      const response = await query(question, sessionId || undefined, 5, selectedSourceFilter || undefined)
       setSessionId(response.session_id)
 
       const assistantMessage: Message = {
@@ -81,10 +373,160 @@ export default function ChatPage() {
 
       setMessages(prev => [...prev, assistantMessage])
     } catch (error: any) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        error: true,
+        errorMessage: error.message || 'Failed to get response'
+      }
+      setMessages(prev => [...prev, errorMessage])
       toast.error(error.message || 'Failed to get response')
       console.error(error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleRetry = async (messageId: string) => {
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1 || messageIndex === 0) return
+
+    const userMessage = messages[messageIndex - 1]
+    if (userMessage.role !== 'user') return
+
+    // Remove error message
+    const updatedMessages = messages.slice(0, messageIndex)
+    setMessages(updatedMessages)
+
+    // Retry the query
+    setIsLoading(true)
+    try {
+      const response = await query(userMessage.content, sessionId || undefined, 5, selectedSourceFilter || undefined)
+      setSessionId(response.session_id)
+
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: response.answer,
+        citations: response.citations,
+        timestamp: new Date(),
+      }
+
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        error: true,
+        errorMessage: error.message || 'Failed to get response'
+      }
+      setMessages(prev => [...prev, errorMessage])
+      toast.error(error.message || 'Failed to get response')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEditMessage = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId)
+    if (message && message.role === 'user') {
+      setEditingMessageId(messageId)
+      setEditingMessageContent(message.content)
+    }
+  }
+
+  const handleSaveEdit = () => {
+    if (!editingMessageId || !editingMessageContent.trim()) return
+    
+    const messageIndex = messages.findIndex(m => m.id === editingMessageId)
+    if (messageIndex === -1) return
+
+    // Update the message
+    const updatedMessages = [...messages]
+    updatedMessages[messageIndex] = {
+      ...updatedMessages[messageIndex],
+      content: editingMessageContent.trim()
+    }
+
+    // Remove all messages after this one (to regenerate from this point)
+    const messagesToKeep = updatedMessages.slice(0, messageIndex + 1)
+    setMessages(messagesToKeep)
+
+    // Re-send the edited message
+    setEditingMessageId(null)
+    setEditingMessageContent('')
+    handleSubmit(undefined, editingMessageContent.trim())
+  }
+
+  const handleDeleteMessage = (messageId: string) => {
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1) return
+
+    // If deleting a user message, also remove the assistant response after it
+    const message = messages[messageIndex]
+    let messagesToRemove = 1
+    if (message.role === 'user' && messageIndex + 1 < messages.length) {
+      const nextMessage = messages[messageIndex + 1]
+      if (nextMessage.role === 'assistant') {
+        messagesToRemove = 2
+      }
+    }
+
+    const updatedMessages = messages.filter((_, index) => {
+      if (message.role === 'user') {
+        return index < messageIndex || index >= messageIndex + messagesToRemove
+      }
+      return index !== messageIndex
+    })
+
+    setMessages(updatedMessages)
+    toast.success('Message deleted')
+  }
+
+  const handleRegenerate = async (messageId: string) => {
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1 || messageIndex === 0) return
+
+    const userMessage = messages[messageIndex - 1]
+    if (userMessage.role !== 'user') return
+
+    setRegeneratingMessageId(messageId)
+    
+    // Remove the assistant message
+    const messagesToKeep = messages.slice(0, messageIndex)
+    setMessages(messagesToKeep)
+
+    // Re-send the user's question
+    try {
+      const response = await query(userMessage.content, sessionId || undefined)
+      setSessionId(response.session_id)
+
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: response.answer,
+        citations: response.citations,
+        timestamp: new Date(),
+      }
+
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to regenerate response')
+    } finally {
+      setRegeneratingMessageId(null)
+    }
+  }
+
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      toast.success('Copied to clipboard')
+    } catch (error) {
+      toast.error('Failed to copy')
     }
   }
 
@@ -95,9 +537,22 @@ export default function ChatPage() {
     }
   }
 
-  const clearChat = () => {
+  const clearChat = async () => {
+    if (sessionId) {
+      try {
+        await clearConversation(sessionId)
+      } catch (error) {
+        console.error('Failed to clear conversation on server:', error)
+      }
+    }
     setMessages([])
     setSessionId(null)
+    if (currentSessionId) {
+      sessionManager.updateSession(currentSessionId, {
+        messages: [],
+        sessionId: null
+      })
+    }
     toast.success('Chat cleared')
   }
 
@@ -175,30 +630,313 @@ export default function ChatPage() {
       {/* Header */}
       <header className="border-b border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button
+              onClick={() => setShowSessionsPanel(!showSessionsPanel)}
+              className="btn-ghost flex items-center gap-2 text-sm flex-shrink-0"
+              title="Chat sessions"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Sessions</span>
+            </button>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
               <Bot className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="font-semibold">Chat</h1>
-              <p className="text-xs text-[#64748b]">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-semibold truncate">
+                {currentSessionId ? sessions.find(s => s.id === currentSessionId)?.name || 'Chat' : 'Chat'}
+              </h1>
+              <p className="text-xs text-[#64748b] truncate">
                 {sourcesLoading ? 'Loading...' : `${sources.length} source${sources.length !== 1 ? 's' : ''} loaded`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {messages.length > 0 && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Model Selector */}
+            <div className="relative" ref={modelSelectorRef}>
               <button
-                onClick={clearChat}
-                className="btn-ghost flex items-center gap-2 text-red-400 hover:text-red-300"
+                onClick={() => setShowModelSelector(!showModelSelector)}
+                className="btn-ghost flex items-center gap-2 text-sm"
+                title="Change model"
               >
-                <Trash2 className="w-4 h-4" />
-                Clear
+                <Cpu className="w-4 h-4" />
+                {modelConfig ? (
+                  <span className="hidden sm:inline">
+                    {MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO]?.icon} {modelConfig.model.split('-')[0]}
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline">Model</span>
+                )}
+                <ChevronDown className={`w-4 h-4 transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
               </button>
+
+              {showModelSelector && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-2">
+                    {modelConfig && Object.entries(MODEL_INFO).map(([key, info]) => {
+                      const isActive = modelConfig.provider === key
+                      const isAvailable = modelConfig.available_providers.includes(key)
+
+                      return (
+                        <div key={key}>
+                          <button
+                            onClick={() => isAvailable && !isActive && handleSwitchModel(key)}
+                            disabled={!isAvailable || switchingModel}
+                            className={`w-full p-3 rounded-lg text-left transition-all mb-1 ${
+                              isActive
+                                ? 'bg-indigo-500/20 border border-indigo-500/50'
+                                : isAvailable
+                                ? 'hover:bg-[rgba(255,255,255,0.05)] border border-transparent'
+                                : 'opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span>{info.icon}</span>
+                                <span className="font-medium text-sm">{info.name}</span>
+                              </div>
+                              {isActive && <CheckCircle className="w-4 h-4 text-indigo-400" />}
+                            </div>
+                          </button>
+                          {isActive && (
+                            <div className="pl-4 pr-2 pb-2 space-y-1">
+                              {info.models.map((model) => (
+                                <button
+                                  key={model.id}
+                                  onClick={() => handleSwitchModel(key, model.id)}
+                                  disabled={switchingModel || modelConfig.model === model.id}
+                                  className={`w-full p-2 rounded text-left text-xs transition-all ${
+                                    modelConfig.model === model.id
+                                      ? 'bg-indigo-500/10 text-indigo-400'
+                                      : 'hover:bg-[rgba(255,255,255,0.03)] text-[#94a3b8]'
+                                  }`}
+                                >
+                                  {model.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {messages.length > 0 && (
+              <>
+                <button
+                  onClick={() => {
+                    setShowSearch(!showSearch)
+                    if (!showSearch) {
+                      setTimeout(() => searchInputRef.current?.focus(), 0)
+                    } else {
+                      setSearchQuery('')
+                    }
+                  }}
+                  className="btn-ghost flex items-center gap-2"
+                  title="Search messages (Ctrl/Cmd + F)"
+                >
+                  <Search className="w-4 h-4" />
+                  <span className="hidden sm:inline">Search</span>
+                </button>
+                {sources.length > 0 && (
+                  <div className="relative">
+                    <select
+                      value={selectedSourceFilter || ''}
+                      onChange={(e) => setSelectedSourceFilter(e.target.value || null)}
+                      className="btn-ghost text-sm appearance-none pr-8 cursor-pointer"
+                      title="Filter by source"
+                    >
+                      <option value="">All Sources</option>
+                      {sources.map((source) => (
+                        <option key={source.id} value={source.id}>
+                          {source.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedSourceFilter && (
+                      <button
+                        onClick={() => setSelectedSourceFilter(null)}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-[rgba(255,255,255,0.1)] rounded"
+                        title="Clear filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div className="relative" ref={exportMenuRef}>
+                  <button
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    className="btn-ghost flex items-center gap-2"
+                    title="Export chat"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Export</span>
+                  </button>
+                  {showExportMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-xl z-50 overflow-hidden">
+                      <button
+                        onClick={() => handleExport('json')}
+                        className="w-full px-4 py-2 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors text-sm"
+                      >
+                        Export as JSON
+                      </button>
+                      <button
+                        onClick={() => handleExport('markdown')}
+                        className="w-full px-4 py-2 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors text-sm"
+                      >
+                        Export as Markdown
+                      </button>
+                      <button
+                        onClick={() => handleExport('pdf')}
+                        className="w-full px-4 py-2 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors text-sm"
+                      >
+                        Export as PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={clearChat}
+                  className="btn-ghost flex items-center gap-2 text-red-400 hover:text-red-300"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear
+                </button>
+              </>
             )}
           </div>
         </div>
       </header>
+
+      {/* Sessions Panel */}
+      {showSessionsPanel && (
+        <div className="absolute left-0 top-0 bottom-0 w-80 bg-[#0a0a0f] border-r border-[rgba(255,255,255,0.08)] z-40 flex flex-col" ref={sessionsPanelRef}>
+          <div className="p-4 border-b border-[rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Chat Sessions</h2>
+              <button
+                onClick={() => setShowSessionsPanel(false)}
+                className="text-[#64748b] hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              onClick={createNewSession}
+              className="btn-primary w-full flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Chat
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="space-y-1">
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
+                    currentSessionId === session.id
+                      ? 'bg-indigo-500/20 border border-indigo-500/50'
+                      : 'hover:bg-[rgba(255,255,255,0.05)] border border-transparent'
+                  }`}
+                  onClick={() => switchSession(session.id)}
+                >
+                  {editingSessionId === session.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingSessionName}
+                        onChange={(e) => setEditingSessionName(e.target.value)}
+                        onBlur={saveSessionName}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveSessionName()
+                          if (e.key === 'Escape') {
+                            setEditingSessionId(null)
+                            setEditingSessionName('')
+                          }
+                        }}
+                        className="flex-1 bg-[#15151f] border border-indigo-500/50 rounded px-2 py-1 text-sm text-white outline-none"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <MessageSquare className="w-4 h-4 text-[#64748b]" />
+                        <span className="font-medium text-sm truncate flex-1">{session.name}</span>
+                      </div>
+                      <p className="text-xs text-[#64748b]">
+                        {new Date(session.updatedAt).toLocaleDateString()} • {session.messages.length} messages
+                      </p>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditingSession(session.id)
+                          }}
+                          className="p-1 rounded hover:bg-[rgba(255,255,255,0.1)]"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm('Delete this chat session?')) {
+                              deleteSession(session.id)
+                            }
+                          }}
+                          className="p-1 rounded hover:bg-red-500/20 text-red-400"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Bar */}
+      {showSearch && messages.length > 0 && (
+        <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-3">
+          <div className="max-w-4xl mx-auto flex items-center gap-2">
+            <Search className="w-4 h-4 text-[#64748b]" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages..."
+              className="flex-1 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+            />
+            <button
+              onClick={() => {
+                setShowSearch(false)
+                setSearchQuery('')
+              }}
+              className="text-[#64748b] hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {searchQuery && (
+            <div className="max-w-4xl mx-auto mt-2 text-xs text-[#64748b]">
+              Found {messages.filter(m => 
+                m.content.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length} message(s)
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -207,9 +945,36 @@ export default function ChatPage() {
             <WelcomeScreen sources={sources} sourcesLoading={sourcesLoading} onAddSource={() => setShowUploadPanel(true)} />
           ) : (
             <div className="space-y-6">
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
+              {messages
+                .filter(message => 
+                  !searchQuery || 
+                  message.content.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((message, index) => {
+                  const originalIndex = messages.findIndex(m => m.id === message.id)
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      isEditing={editingMessageId === message.id}
+                      editingContent={editingMessageContent}
+                      onEditContentChange={setEditingMessageContent}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={() => {
+                        setEditingMessageId(null)
+                        setEditingMessageContent('')
+                      }}
+                      onEdit={() => handleEditMessage(message.id)}
+                      onDelete={() => handleDeleteMessage(message.id)}
+                  onRegenerate={() => handleRegenerate(message.id)}
+                  onCopy={() => handleCopyMessage(message.content)}
+                  onRetry={message.error ? () => handleRetry(message.id) : undefined}
+                  canRegenerate={message.role === 'assistant' && originalIndex > 0 && messages[originalIndex - 1].role === 'user'}
+                  isRegenerating={regeneratingMessageId === message.id}
+                  highlightText={searchQuery}
+                    />
+                  )
+                })}
               {isLoading && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
@@ -379,7 +1144,7 @@ export default function ChatPage() {
             </div>
           </div>
           <p className="text-xs text-[#64748b] mt-2 text-center">
-            Press Enter to send, Shift + Enter for new line
+            Press Enter to send, Shift + Enter for new line • Ctrl/Cmd + K to focus • Ctrl/Cmd + N for new chat • Ctrl/Cmd + F to search • Ctrl/Cmd + E to export
           </p>
         </form>
       </div>
@@ -438,12 +1203,55 @@ function WelcomeScreen({ sources, sourcesLoading, onAddSource }: { sources: Sour
   )
 }
 
-function MessageBubble({ message }: { message: Message }) {
+interface MessageBubbleProps {
+  message: Message
+  isEditing?: boolean
+  editingContent?: string
+  onEditContentChange?: (content: string) => void
+  onSaveEdit?: () => void
+  onCancelEdit?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+  onRegenerate?: () => void
+  onCopy?: () => void
+  canRegenerate?: boolean
+  isRegenerating?: boolean
+  highlightText?: string
+}
+
+function MessageBubble({
+  message,
+  isEditing = false,
+  editingContent = '',
+  onEditContentChange,
+  onSaveEdit,
+  onCancelEdit,
+  onEdit,
+  onDelete,
+  onRegenerate,
+  onCopy,
+  canRegenerate = false,
+  isRegenerating = false,
+  highlightText = ''
+}: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [showCitations, setShowCitations] = useState(false)
+  const [showActions, setShowActions] = useState(false)
+
+  const highlightTextInContent = (content: string, query: string) => {
+    if (!query) return content
+    const parts = content.split(new RegExp(`(${query})`, 'gi'))
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={i} className="bg-yellow-500/30 text-yellow-200">{part}</mark>
+      ) : (
+        part
+      )
+    )
+  }
 
   return (
-    <div className={`flex gap-4 fade-in ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-4 fade-in group ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div
         className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -457,17 +1265,134 @@ function MessageBubble({ message }: { message: Message }) {
 
       {/* Message */}
       <div className={`flex-1 max-w-[80%] ${isUser ? 'text-right' : ''}`}>
-        <div
-          className={`inline-block rounded-2xl px-5 py-3 ${
-            isUser ? 'message-user text-white' : 'message-ai text-white/90'
-          }`}
-        >
-          {isUser ? (
-            <p className="whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            <div className="prose prose-invert prose-sm max-w-none text-left">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+        <div className="relative">
+          {isEditing ? (
+            <div className="rounded-2xl px-5 py-3 message-user">
+              <textarea
+                value={editingContent}
+                onChange={(e) => onEditContentChange?.(e.target.value)}
+                className="w-full bg-transparent text-white resize-none outline-none"
+                rows={3}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    onSaveEdit?.()
+                  }
+                  if (e.key === 'Escape') {
+                    onCancelEdit?.()
+                  }
+                }}
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={onSaveEdit}
+                  className="text-xs px-3 py-1 bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={onCancelEdit}
+                  className="text-xs px-3 py-1 bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              <div
+                className={`inline-block rounded-2xl px-5 py-3 relative ${
+                  isUser ? 'message-user text-white' : 'message-ai text-white/90'
+                }`}
+                onMouseEnter={() => setShowActions(true)}
+                onMouseLeave={() => setShowActions(false)}
+              >
+                {isUser ? (
+                  <p className="whitespace-pre-wrap">
+                    {highlightText ? highlightTextInContent(message.content, highlightText) : message.content}
+                  </p>
+                ) : (
+                  <div className="prose prose-invert prose-sm max-w-none text-left">
+                    <ReactMarkdown
+                      components={{
+                        code({ node, inline, className, children, ...props }: any) {
+                          const match = /language-(\w+)/.exec(className || '')
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={vscDarkPlus}
+                              language={match[1]}
+                              PreTag="div"
+                              className="rounded-lg"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          )
+                        },
+                        p: ({ children }: any) => {
+                          const content = String(children)
+                          return highlightText ? (
+                            <p>{highlightTextInContent(content, highlightText)}</p>
+                          ) : (
+                            <p>{children}</p>
+                          )
+                        }
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+
+                {/* Message Actions */}
+                {showActions && (
+                  <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} flex gap-1 bg-[#0a0a0f]/90 backdrop-blur-sm rounded-lg p-1 border border-[rgba(255,255,255,0.1)]`}>
+                    {onCopy && (
+                      <button
+                        onClick={onCopy}
+                        className="p-1.5 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                        title="Copy"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {isUser && onEdit && (
+                      <button
+                        onClick={onEdit}
+                        className="p-1.5 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {!isUser && canRegenerate && onRegenerate && (
+                      <button
+                        onClick={onRegenerate}
+                        disabled={isRegenerating}
+                        className="p-1.5 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors disabled:opacity-50"
+                        title="Regenerate"
+                      >
+                        <RotateCcw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={onDelete}
+                        className="p-1.5 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
@@ -476,27 +1401,58 @@ function MessageBubble({ message }: { message: Message }) {
           <div className="mt-3 text-left">
             <button
               onClick={() => setShowCitations(!showCitations)}
-              className="flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors group"
             >
-              <FileCode className="w-4 h-4" />
-              {message.citations.length} citation{message.citations.length > 1 ? 's' : ''}
+              <FileCode className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span className="font-medium">
+                {message.citations.length} citation{message.citations.length > 1 ? 's' : ''}
+              </span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showCitations ? 'rotate-180' : ''}`} />
             </button>
 
             {showCitations && (
-              <div className="mt-2 space-y-2">
+              <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2">
                 {message.citations.map((citation, i) => (
-                  <div key={i} className="citation-card">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-indigo-400">
-                        {citation.source}
-                        {citation.line && `:${citation.line}`}
-                        {citation.page && ` (Page ${citation.page})`}
-                      </span>
+                  <div
+                    key={i}
+                    className="citation-card group/citation bg-[rgba(99,102,241,0.05)] border border-indigo-500/20 rounded-lg p-3 hover:border-indigo-500/40 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex-shrink-0 w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center text-xs font-semibold text-indigo-400">
+                          {i + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-indigo-300 truncate">
+                              {citation.source}
+                            </span>
+                            {citation.line && (
+                              <span className="text-xs text-[#94a3b8] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 rounded">
+                                Line {citation.line}
+                              </span>
+                            )}
+                            {citation.page && (
+                              <span className="text-xs text-[#94a3b8] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 rounded">
+                                Page {citation.page}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleCopyMessage(citation.content)}
+                        className="opacity-0 group-hover/citation:opacity-100 transition-opacity p-1 hover:bg-[rgba(255,255,255,0.1)] rounded"
+                        title="Copy citation"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
                     </div>
-                    <p className="text-xs text-[#94a3b8] line-clamp-2">
-                      {citation.content}
-                    </p>
+                    <div className="pl-8">
+                      <p className="text-xs text-[#94a3b8] leading-relaxed line-clamp-3 group-hover/citation:line-clamp-none transition-all">
+                        {citation.content}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>

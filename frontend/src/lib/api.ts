@@ -133,7 +133,8 @@ export const ingestURL = async (url: string): Promise<IngestResponse> => {
 export const query = async (
   question: string,
   sessionId?: string,
-  topK: number = 5
+  topK: number = 5,
+  sourceFilter?: string
 ): Promise<QueryResponse> => {
   return apiCall<QueryResponse>('/query', {
     method: 'POST',
@@ -141,6 +142,7 @@ export const query = async (
       question,
       session_id: sessionId,
       top_k: topK,
+      source_filter: sourceFilter,
     }),
   })
 }
@@ -202,6 +204,12 @@ export const setModelSettings = async (provider: string, model?: string): Promis
   return apiCall('/settings/model', {
     method: 'POST',
     body: JSON.stringify({ provider, model }),
+  })
+}
+
+export const clearConversation = async (sessionId: string): Promise<{ message: string }> => {
+  return apiCall(`/conversations/${sessionId}/clear`, {
+    method: 'POST',
   })
 }
 
