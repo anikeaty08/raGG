@@ -293,7 +293,13 @@ Give a helpful, natural response:"""
                 temperature=0.7
             )
             
+            # Ensure answer is a string
             answer = response.content
+            if not isinstance(answer, str):
+                if isinstance(answer, tuple):
+                    answer = str(answer[0]) if len(answer) > 0 else ""
+                else:
+                    answer = str(answer)
             
             # Verify answer if agentic mode
             verification = None

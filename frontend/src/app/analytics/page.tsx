@@ -53,7 +53,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <BarChart3 className="w-12 h-12 text-indigo-400 animate-pulse mx-auto mb-4" />
-            <p className="text-[#94a3b8]">Loading analytics...</p>
+            <p className="text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">Loading analytics...</p>
           </div>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Analytics Dashboard</h1>
-        <p className="text-[#94a3b8]">Usage statistics and insights</p>
+        <p className="text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">Usage statistics and insights</p>
       </div>
 
       {/* Stats Grid */}

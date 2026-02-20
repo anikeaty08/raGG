@@ -66,14 +66,14 @@ function AuthButton() {
         {showMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-xl z-50 overflow-hidden">
-              <div className="p-3 border-b border-[rgba(255,255,255,0.1)]">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="p-3 border-b border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/20">
                 <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-xs text-[#64748b] truncate">{user.email}</p>
+                <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 truncate">{user.email}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full p-3 flex items-center gap-2 text-sm text-red-400 hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                className="w-full p-3 flex items-center gap-2 text-sm text-red-400 dark:text-red-400 text-red-500 hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-50 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 Sign Out
@@ -190,25 +190,25 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#0a0a0f]/95 backdrop-blur-xl border-r border-[rgba(255,255,255,0.08)] flex flex-col z-40 transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#0a0a0f]/95 dark:bg-[#0a0a0f]/95 bg-white/95 backdrop-blur-xl border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 flex flex-col z-40 transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-[rgba(255,255,255,0.08)]">
+        <div className="p-6 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:shadow-purple-500/40 transition-shadow">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-500 dark:via-purple-500 dark:to-pink-500 from-pink-400 via-rose-400 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20 dark:shadow-purple-500/20 shadow-pink-400/30 group-hover:shadow-purple-500/40 dark:group-hover:shadow-purple-500/40 group-hover:shadow-pink-400/50 transition-shadow">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="font-bold text-lg gradient-text">RAG Assistant</h1>
-              <p className="text-xs text-[#64748b]">AI-Powered Learning</p>
+              <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">AI-Powered Learning</p>
             </div>
           </Link>
         </div>
 
         {/* Connection Status */}
-        <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.08)]">
+        <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
           <div className={`flex items-center gap-2 text-xs font-medium ${
             isConnected === null ? 'text-yellow-400' :
             isConnected ? 'text-emerald-400' : 'text-red-400'
@@ -222,7 +222,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Auth Section */}
-        <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between gap-2">
+        <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20 flex items-center justify-between gap-2">
           <AuthButton />
           <ThemeToggle />
         </div>
@@ -248,10 +248,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-[rgba(255,255,255,0.08)]">
-          <div className="card p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
+        <div className="p-4 border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
+          <div className="card p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/10 dark:to-purple-500/10 from-pink-100/50 to-rose-100/50 border-indigo-500/20 dark:border-indigo-500/20 border-pink-300/30">
             <p className="text-sm font-medium text-white mb-1">Pro Tip</p>
-            <p className="text-xs text-[#94a3b8]">
+            <p className="text-xs text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">
               Upload PDFs, GitHub repos, or web URLs to get AI answers with citations!
             </p>
           </div>
@@ -273,7 +273,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/50 backdrop-blur-xl">
+        <footer className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20 bg-[#0a0a0f]/50 dark:bg-[#0a0a0f]/50 bg-white/80 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               {/* Left - Branding */}
@@ -283,7 +283,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold">RAG Study Assistant</p>
-                  <p className="text-xs text-[#64748b]">Powered by Gemini 2.5</p>
+                  <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">Powered by Gemini 2.5</p>
                 </div>
               </div>
 
@@ -293,7 +293,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   href="https://github.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-[#94a3b8] hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800 transition-colors"
                 >
                   <Github className="w-4 h-4" />
                   GitHub
@@ -302,7 +302,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   href="https://ai.google.dev"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-[#94a3b8] hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-sm text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800 transition-colors"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Gemini API
@@ -310,15 +310,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               </div>
 
               {/* Right - Made with */}
-              <div className="flex items-center gap-1.5 text-sm text-[#64748b]">
-                Made with <Heart className="w-4 h-4 text-red-400 fill-red-400" />{' '}by Aniket
+              <div className="flex items-center gap-1.5 text-sm text-[#64748b] dark:text-[#64748b] text-pink-600/70">
+                Made with <Heart className="w-4 h-4 text-red-400 dark:text-red-400 fill-red-400 text-pink-500 fill-pink-500" />{' '}by Aniket
               </div>
             </div>
 
             {/* Bottom bar */}
             <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.05)] flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-[#64748b]">
-              <p>&copy; {new Date().getFullYear()} RAG Study Assistant. All rights reserved.</p>
-              <p>Data auto-deletes after 1 hour for privacy</p>
+              <p className="text-pink-600/60 dark:text-[#64748b]">&copy; {new Date().getFullYear()} RAG Study Assistant. All rights reserved.</p>
+              <p className="text-pink-600/60 dark:text-[#64748b]">Data auto-deletes after 1 hour for privacy</p>
             </div>
           </div>
         </footer>

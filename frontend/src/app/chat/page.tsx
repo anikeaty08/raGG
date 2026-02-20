@@ -708,7 +708,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="border-b border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-4">
+      <header className="border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 bg-[#0a0a0f]/80 dark:bg-[#0a0a0f]/80 bg-white/90 backdrop-blur-xl p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
@@ -719,14 +719,14 @@ export default function ChatPage() {
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">Sessions</span>
             </button>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 dark:from-indigo-500 dark:to-purple-600 from-pink-400 to-rose-500 flex items-center justify-center flex-shrink-0">
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="font-semibold truncate">
                 {currentSessionId ? sessions.find(s => s.id === currentSessionId)?.name || 'Chat' : 'Chat'}
               </h1>
-              <p className="text-xs text-[#64748b] truncate">
+              <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 truncate">
                 {sourcesLoading ? 'Loading...' : `${sources.length} source${sources.length !== 1 ? 's' : ''} loaded`}
               </p>
             </div>
@@ -751,7 +751,7 @@ export default function ChatPage() {
               </button>
 
               {showModelSelector && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="p-2">
                     {modelConfig && Object.entries(MODEL_INFO).map(([key, info]) => {
                       const isActive = modelConfig.provider === key
@@ -877,7 +877,7 @@ export default function ChatPage() {
                     <span className="hidden sm:inline">Export</span>
                   </button>
                   {showExportMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
                       <button
                         onClick={() => handleExport('json')}
                         className="w-full px-4 py-2 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors text-sm"
@@ -914,13 +914,13 @@ export default function ChatPage() {
 
       {/* Sessions Panel */}
       {showSessionsPanel && (
-        <div className="absolute left-0 top-0 bottom-0 w-80 bg-[#0a0a0f] border-r border-[rgba(255,255,255,0.08)] z-40 flex flex-col" ref={sessionsPanelRef}>
-          <div className="p-4 border-b border-[rgba(255,255,255,0.08)]">
+        <div className="absolute left-0 top-0 bottom-0 w-80 bg-[#0a0a0f] dark:bg-[#0a0a0f] bg-white border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 z-40 flex flex-col" ref={sessionsPanelRef}>
+          <div className="p-4 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">Chat Sessions</h2>
               <button
                 onClick={() => setShowSessionsPanel(false)}
-                className="text-[#64748b] hover:text-white"
+                className="text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -959,7 +959,7 @@ export default function ChatPage() {
                             setEditingSessionName('')
                           }
                         }}
-                        className="flex-1 bg-[#15151f] border border-indigo-500/50 rounded px-2 py-1 text-sm text-white outline-none"
+                        className="flex-1 bg-[#15151f] dark:bg-[#15151f] bg-white border border-indigo-500/50 dark:border-indigo-500/50 border-pink-300/50 rounded px-2 py-1 text-sm text-white dark:text-white text-gray-800 outline-none"
                         autoFocus
                       />
                     </div>
@@ -969,7 +969,7 @@ export default function ChatPage() {
                         <MessageSquare className="w-4 h-4 text-[#64748b]" />
                         <span className="font-medium text-sm truncate flex-1">{session.name}</span>
                       </div>
-                      <p className="text-xs text-[#64748b]">
+                      <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">
                         {new Date(session.updatedAt).toLocaleDateString()} • {session.messages.length} messages
                       </p>
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -1007,7 +1007,7 @@ export default function ChatPage() {
 
       {/* Search Bar */}
       {showSearch && messages.length > 0 && (
-        <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-3">
+        <div className="border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 bg-[#0a0a0f]/80 dark:bg-[#0a0a0f]/80 bg-white/90 backdrop-blur-xl p-3">
           <div className="max-w-4xl mx-auto flex items-center gap-2">
             <Search className="w-4 h-4 text-[#64748b]" />
             <input
@@ -1016,20 +1016,20 @@ export default function ChatPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search messages..."
-              className="flex-1 bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-sm text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+              className="flex-1 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-lg px-3 py-2 text-sm text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none"
             />
             <button
               onClick={() => {
                 setShowSearch(false)
                 setSearchQuery('')
               }}
-              className="text-[#64748b] hover:text-white"
+              className="text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           {searchQuery && (
-            <div className="max-w-4xl mx-auto mt-2 text-xs text-[#64748b]">
+            <div className="max-w-4xl mx-auto mt-2 text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">
               Found {messages.filter(m => 
                 m.content.toLowerCase().includes(searchQuery.toLowerCase())
               ).length} message(s)
@@ -1094,11 +1094,11 @@ export default function ChatPage() {
 
       {/* Upload Panel */}
       {showUploadPanel && (
-        <div className="border-t border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/95 backdrop-blur-xl p-4">
+        <div className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 bg-[#0a0a0f]/95 dark:bg-[#0a0a0f]/95 bg-white/95 backdrop-blur-xl p-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Add Source</h3>
-              <button onClick={() => { setShowUploadPanel(false); setUploadType(null) }} className="text-[#64748b] hover:text-white">
+              <button onClick={() => { setShowUploadPanel(false); setUploadType(null) }} className="text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1154,7 +1154,7 @@ export default function ChatPage() {
                   )}
                   <span className="text-sm">{uploading ? 'Uploading...' : 'Click to select PDF'}</span>
                 </button>
-                <button onClick={() => setUploadType(null)} className="text-sm text-[#64748b] hover:text-white">
+                <button onClick={() => setUploadType(null)} className="text-sm text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800">
                   Back
                 </button>
               </div>
@@ -1165,7 +1165,7 @@ export default function ChatPage() {
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="https://example.com/article"
-                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                  className="w-full bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl px-4 py-3 text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none"
                 />
                 <div className="flex gap-2">
                   <button onClick={() => setUploadType(null)} className="btn-ghost text-sm">
@@ -1187,14 +1187,14 @@ export default function ChatPage() {
                   value={githubUrl}
                   onChange={(e) => setGithubUrl(e.target.value)}
                   placeholder="https://github.com/user/repo"
-                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                  className="w-full bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl px-4 py-3 text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none"
                 />
                 <input
                   type="text"
                   value={githubBranch}
                   onChange={(e) => setGithubBranch(e.target.value)}
                   placeholder="Branch (default: main)"
-                  className="w-full bg-[#15151f] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-[#64748b] focus:border-indigo-500 outline-none"
+                  className="w-full bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl px-4 py-3 text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none"
                 />
                 <div className="flex gap-2">
                   <button onClick={() => setUploadType(null)} className="btn-ghost text-sm">
@@ -1215,14 +1215,14 @@ export default function ChatPage() {
       )}
 
       {/* Input */}
-      <div className="border-t border-[rgba(255,255,255,0.08)] bg-[#0a0a0f]/80 backdrop-blur-xl p-4">
+      <div className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 bg-[#0a0a0f]/80 dark:bg-[#0a0a0f]/80 bg-white/90 backdrop-blur-xl p-4">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="glass rounded-2xl p-2 focus-within:border-indigo-500/50 transition-all">
             <div className="flex items-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowUploadPanel(!showUploadPanel)}
-                className={`p-3 rounded-xl transition-all ${showUploadPanel ? 'bg-indigo-500/20 text-indigo-400' : 'text-[#64748b] hover:text-white hover:bg-[rgba(255,255,255,0.05)]'}`}
+                className={`p-3 rounded-xl transition-all ${showUploadPanel ? 'bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-200/50 text-indigo-400 dark:text-indigo-400 text-pink-600' : 'text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800 hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-100/50'}`}
                 title="Add source"
               >
                 <Plus className="w-5 h-5" />
@@ -1238,12 +1238,12 @@ export default function ChatPage() {
                 placeholder={sources.length === 0 ? 'Ask me anything! Add sources for cited answers...' : 'Ask anything about your sources...'}
                 disabled={isLoading}
                 rows={1}
-                className="flex-1 bg-transparent resize-none outline-none text-white placeholder-[#64748b] px-2 py-3 max-h-40 min-h-[52px]"
+                className="flex-1 bg-transparent resize-none outline-none text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 px-2 py-3 max-h-40 min-h-[52px]"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
+                className="p-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-500 dark:to-purple-600 from-pink-500 to-rose-500 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/25 dark:hover:shadow-indigo-500/25 hover:shadow-pink-500/25 transition-all"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -1253,7 +1253,7 @@ export default function ChatPage() {
               </button>
             </div>
           </div>
-          <p className="text-xs text-[#64748b] mt-2 text-center">
+          <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 mt-2 text-center">
             Press Enter to send, Shift + Enter for new line • Ctrl/Cmd + K to focus • Ctrl/Cmd + N for new chat • Ctrl/Cmd + F to search • Ctrl/Cmd + E to export
           </p>
         </form>
@@ -1276,7 +1276,7 @@ function WelcomeScreen({ sources, sourcesLoading, onAddSource }: { sources: Sour
         <span className="gradient-text">Ask Anything</span>
       </h2>
 
-      <p className="text-[#94a3b8] max-w-md mb-8">
+      <p className="text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80 max-w-md mb-8">
         {sourcesLoading
           ? 'Loading your sources...'
           : sources.length === 0
@@ -1304,7 +1304,7 @@ function WelcomeScreen({ sources, sourcesLoading, onAddSource }: { sources: Sour
             <div key={i} className="card text-left">
               <div className="text-3xl mb-3">{item.icon}</div>
               <h3 className="font-semibold text-white mb-1">{item.title}</h3>
-              <p className="text-sm text-[#94a3b8]">{item.desc}</p>
+              <p className="text-sm text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -1394,8 +1394,8 @@ function MessageBubble({
       <div
         className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
           isUser
-            ? 'bg-gradient-to-br from-cyan-500 to-blue-600'
-            : 'bg-gradient-to-br from-purple-500 to-pink-600'
+            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 dark:from-cyan-500 dark:to-blue-600 from-pink-400 to-rose-500'
+            : 'bg-gradient-to-br from-purple-500 to-pink-600 dark:from-purple-500 dark:to-pink-600 from-pink-300 to-rose-400'
         }`}
       >
         {isUser ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
@@ -1409,7 +1409,7 @@ function MessageBubble({
               <textarea
                 value={editingContent}
                 onChange={(e) => onEditContentChange?.(e.target.value)}
-                className="w-full bg-transparent text-white resize-none outline-none"
+                className="w-full bg-transparent text-white dark:text-white text-gray-800 resize-none outline-none"
                 rows={3}
                 autoFocus
                 onKeyDown={(e) => {
@@ -1441,7 +1441,7 @@ function MessageBubble({
             <>
               <div
                 className={`inline-block rounded-2xl px-5 py-3 relative ${
-                  isUser ? 'message-user text-white' : 'message-ai text-white/90'
+                  isUser ? 'message-user text-white dark:text-white' : 'message-ai text-white/90 dark:text-white/90 text-gray-800'
                 }`}
                 onMouseEnter={() => setShowActions(true)}
                 onMouseLeave={() => setShowActions(false)}
@@ -1489,7 +1489,7 @@ function MessageBubble({
 
                 {/* Message Actions */}
                 {showActions && (
-                  <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} flex gap-1 bg-[#0a0a0f]/90 backdrop-blur-sm rounded-lg p-1 border border-[rgba(255,255,255,0.1)]`}>
+                  <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} flex gap-1 bg-[#0a0a0f]/90 dark:bg-[#0a0a0f]/90 bg-white/90 backdrop-blur-sm rounded-lg p-1 border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30`}>
                     {onCopy && (
                       <button
                         onClick={() => onCopy(message.content)}
@@ -1539,7 +1539,7 @@ function MessageBubble({
           <div className="mt-3 text-left">
             <button
               onClick={() => setShowCitations(!showCitations)}
-              className="flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 transition-colors group"
+              className="flex items-center gap-2 text-xs text-indigo-400 dark:text-indigo-400 text-pink-600 hover:text-indigo-300 dark:hover:text-indigo-300 hover:text-pink-700 transition-colors group"
             >
               <FileCode className="w-4 h-4 group-hover:scale-110 transition-transform" />
               <span className="font-medium">
@@ -1553,25 +1553,25 @@ function MessageBubble({
                 {message.citations.map((citation, i) => (
                   <div
                     key={i}
-                    className="citation-card group/citation bg-[rgba(99,102,241,0.05)] border border-indigo-500/20 rounded-lg p-3 hover:border-indigo-500/40 transition-all"
+                    className="citation-card group/citation bg-[rgba(99,102,241,0.05)] dark:bg-[rgba(99,102,241,0.05)] bg-pink-50/80 border border-indigo-500/20 dark:border-indigo-500/20 border-pink-200/50 rounded-lg p-3 hover:border-indigo-500/40 dark:hover:border-indigo-500/40 hover:border-pink-400/60 transition-all"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="flex-shrink-0 w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center text-xs font-semibold text-indigo-400">
+                        <div className="flex-shrink-0 w-6 h-6 rounded bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-200/50 flex items-center justify-center text-xs font-semibold text-indigo-400 dark:text-indigo-400 text-pink-600">
                           {i + 1}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-semibold text-indigo-300 truncate">
+                            <span className="text-xs font-semibold text-indigo-300 dark:text-indigo-300 text-pink-600 truncate">
                               {citation.source}
                             </span>
                             {citation.line && (
-                              <span className="text-xs text-[#94a3b8] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 rounded">
+                              <span className="text-xs text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/70 bg-[rgba(255,255,255,0.05)] dark:bg-[rgba(255,255,255,0.05)] bg-pink-100/50 px-2 py-0.5 rounded">
                                 Line {citation.line}
                               </span>
                             )}
                             {citation.page && (
-                              <span className="text-xs text-[#94a3b8] bg-[rgba(255,255,255,0.05)] px-2 py-0.5 rounded">
+                              <span className="text-xs text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/70 bg-[rgba(255,255,255,0.05)] dark:bg-[rgba(255,255,255,0.05)] bg-pink-100/50 px-2 py-0.5 rounded">
                                 Page {citation.page}
                               </span>
                             )}
@@ -1587,7 +1587,7 @@ function MessageBubble({
                       </button>
                     </div>
                     <div className="pl-8">
-                      <p className="text-xs text-[#94a3b8] leading-relaxed line-clamp-3 group-hover/citation:line-clamp-none transition-all">
+                      <p className="text-xs text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80 leading-relaxed line-clamp-3 group-hover/citation:line-clamp-none transition-all">
                         {citation.content}
                       </p>
                     </div>
@@ -1599,7 +1599,7 @@ function MessageBubble({
         )}
 
         {/* Timestamp */}
-        <p className={`text-xs text-[#64748b] mt-2 ${isUser ? 'text-right' : ''}`}>
+          <p className={`text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 mt-2 ${isUser ? 'text-right' : ''}`}>
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
@@ -1610,7 +1610,7 @@ function MessageBubble({
 function TypingIndicator() {
   return (
     <div className="flex gap-4 fade-in">
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 dark:from-purple-500 dark:to-pink-600 from-pink-300 to-rose-400 flex items-center justify-center">
         <Bot className="w-5 h-5 text-white" />
       </div>
       <div className="message-ai rounded-2xl">

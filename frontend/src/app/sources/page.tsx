@@ -71,7 +71,7 @@ export default function SourcesPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Sources</h1>
-          <p className="text-[#94a3b8]">Manage your knowledge base sources</p>
+          <p className="text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">Manage your knowledge base sources</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={fetchSources} className="btn-secondary flex items-center gap-2">

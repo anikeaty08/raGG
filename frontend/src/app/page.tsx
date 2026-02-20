@@ -112,7 +112,7 @@ export default function Dashboard() {
           <h1 className="text-3xl md:text-4xl font-bold mb-3">
             Welcome to <span className="gradient-text">RAG Study Assistant</span>
           </h1>
-          <p className="text-lg text-[#94a3b8] max-w-2xl mb-6">
+          <p className="text-lg text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80 max-w-2xl mb-6">
             Your AI-powered study companion. Upload your materials and get instant, cited answers powered by Gemini 2.5.
           </p>
 
@@ -181,9 +181,9 @@ export default function Dashboard() {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">{type.title}</h3>
-                <p className="text-sm text-[#94a3b8]">{type.description}</p>
+                <p className="text-sm text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">{type.description}</p>
               </div>
-              <ArrowRight className="w-5 h-5 text-[#64748b] group-hover:text-white group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="w-5 h-5 text-[#64748b] dark:text-[#64748b] text-pink-600/70 group-hover:text-white dark:group-hover:text-white group-hover:text-pink-800 group-hover:translate-x-1 transition-all" />
             </Link>
           ))}
         </div>
@@ -202,7 +202,7 @@ export default function Dashboard() {
                 <feature.icon className="w-5 h-5 text-white" />
               </div>
               <h3 className="font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-[#94a3b8]">{feature.description}</p>
+              <p className="text-sm text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80">{feature.description}</p>
             </div>
           ))}
         </div>

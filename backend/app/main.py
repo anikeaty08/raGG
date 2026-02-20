@@ -324,7 +324,7 @@ async def query(
     user_id = get_user_id(authorization, x_user_id)
 
     try:
-        answer, citations, metadata = await agentic_engine.query(
+        result = await agentic_engine.query(
             question=query_request.question,
             session_id=session_id,
             top_k=query_request.top_k,
@@ -333,6 +333,24 @@ async def query(
             use_agentic=query_request.use_agentic,
             use_web_search=query_request.use_web_search
         )
+        
+        # Ensure result is properly unpacked
+        if isinstance(result, tuple) and len(result) >= 2:
+            answer, citations, metadata = result[0], result[1], result[2] if len(result) > 2 else {}
+        else:
+            # Fallback if result format is unexpected
+            answer = str(result[0]) if isinstance(result, tuple) and len(result) > 0 else str(result)
+            citations = result[1] if isinstance(result, tuple) and len(result) > 1 else []
+            metadata = result[2] if isinstance(result, tuple) and len(result) > 2 else {}
+        
+        # Ensure answer is a string
+        if not isinstance(answer, str):
+            if isinstance(answer, tuple):
+                # If answer is a tuple, take the first element
+                answer = str(answer[0]) if len(answer) > 0 else ""
+            else:
+                answer = str(answer)
+        
         return QueryResponse(
             answer=answer,
             citations=[Citation(**c) for c in citations],
