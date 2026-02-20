@@ -5,11 +5,12 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare, Database, Settings, Sparkles, Menu, X, Home, Github, Heart, ExternalLink, LogIn, LogOut, User } from 'lucide-react'
+import { MessageSquare, Database, Settings, Sparkles, Menu, X, Home, Github, Heart, ExternalLink, LogIn, LogOut, User, BarChart3, Sun, Moon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { healthCheck, getAuthConfig } from '@/lib/api'
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/lib/auth'
+import { ThemeProvider, useTheme } from '@/lib/theme'
 import toast from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -97,11 +98,24 @@ function AuthButton() {
   )
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme()
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+    >
+      {theme === 'dark' ? (
+        <Sun className="w-5 h-5 text-yellow-400" />
+      ) : (
+        <Moon className="w-5 h-5 text-indigo-400" />
+      )}
+    </button>
+  )
+}
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
@@ -143,10 +157,11 @@ export default function RootLayout({
     { href: '/', label: 'Dashboard', icon: Home },
     { href: '/chat', label: 'Chat', icon: MessageSquare },
     { href: '/sources', label: 'Sources', icon: Database },
+    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/settings', label: 'Settings', icon: Settings },
   ]
 
-  const content = (
+  return (
     <div className="flex min-h-screen">
       {/* Mobile Menu Button */}
       <button
@@ -190,8 +205,9 @@ export default function RootLayout({
         </div>
 
         {/* Auth Section */}
-        <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)]">
+        <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between gap-2">
           <AuthButton />
+          <ThemeToggle />
         </div>
 
         {/* Navigation */}
@@ -292,22 +308,26 @@ export default function RootLayout({
       </div>
     </div>
   )
+}
 
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>RAG Study Assistant</title>
         <meta name="description" content="AI-powered study assistant with RAG" />
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={inter.className}>
-        {googleClientId ? (
-          <GoogleOAuthProvider clientId={googleClientId}>
-            {content}
+        <ThemeProvider>
+          <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
+            <LayoutContent>{children}</LayoutContent>
           </GoogleOAuthProvider>
-        ) : (
-          content
-        )}
+        </ThemeProvider>
 
         {/* Toast Notifications */}
         <Toaster

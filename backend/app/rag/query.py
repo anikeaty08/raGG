@@ -300,6 +300,84 @@ Your helpful response:"""
         if session_id in self.conversations:
             self.conversations[session_id] = []
 
+    async def _generate_stream(self, prompt: str, session_id: str):
+        """Generate response using streaming (yields chunks)."""
+        if self.provider == "groq":
+            async for chunk in self._generate_groq_stream(prompt, session_id):
+                yield chunk
+        else:
+            async for chunk in self._generate_gemini_stream(prompt, session_id):
+                yield chunk
+
+    async def _generate_gemini_stream(self, prompt: str, session_id: str):
+        """Generate using Gemini with streaming."""
+        history = self.conversations.get(session_id, [])
+        messages = []
+        
+        for msg in history[:-1]:
+            if msg["role"] == "user":
+                messages.append({"role": "user", "parts": [msg["content"]]})
+            elif msg["role"] == "assistant":
+                messages.append({"role": "model", "parts": [msg["content"]]})
+        
+        messages.append({"role": "user", "parts": [prompt]})
+        
+        for model in self.PROVIDERS["gemini"]["models"]:
+            try:
+                if len(messages) > 1:
+                    response = gemini_client.models.generate_content_stream(
+                        model=model,
+                        contents=messages
+                    )
+                else:
+                    response = gemini_client.models.generate_content_stream(
+                        model=model,
+                        contents=prompt
+                    )
+                
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
+                return
+            except Exception as e:
+                print(f"Gemini streaming failed: {e}")
+                continue
+        
+        yield "Error: Streaming failed. Please check your API key."
+
+    async def _generate_groq_stream(self, prompt: str, session_id: str):
+        """Generate using Groq with streaming."""
+        history = self.conversations.get(session_id, [])
+        messages = [{"role": "system", "content": "You are a helpful, friendly study tutor."}]
+        
+        for msg in history[:-1]:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+        
+        messages.append({"role": "user", "content": prompt})
+        
+        for model in self.PROVIDERS["groq"]["models"]:
+            try:
+                response = groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=2048,
+                    stream=True
+                )
+                
+                for chunk in response:
+                    if chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+                return
+            except Exception as e:
+                print(f"Groq streaming failed: {e}")
+                continue
+        
+        yield "Error: Streaming failed. Please check your API key."
+
     def get_current_config(self) -> dict:
         """Get current provider configuration."""
         return {

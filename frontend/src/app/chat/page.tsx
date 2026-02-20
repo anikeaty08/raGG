@@ -3,7 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText, Cpu, CheckCircle, MessageSquare, Edit2, MoreVertical, Copy, RotateCcw, Download, Search } from 'lucide-react'
-import { query, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig } from '@/lib/api'
+import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders } from '@/lib/api'
+import AgentThinking from '@/components/AgentThinking'
+import WebSearchResults from '@/components/WebSearchResults'
+import ToolUsage from '@/components/ToolUsage'
 import { sessionManager, ChatSession } from '@/lib/sessionManager'
 import { exportToJSON, exportToMarkdown, exportToPDF } from '@/lib/utils/export'
 import toast from 'react-hot-toast'
@@ -19,6 +22,9 @@ interface Message {
   timestamp: Date
   error?: boolean
   errorMessage?: string
+  webSearchResults?: any[]
+  plan?: any
+  toolsUsed?: Array<{ name: string; result?: any }>
 }
 
 export default function ChatPage() {
@@ -49,6 +55,9 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [selectedSourceFilter, setSelectedSourceFilter] = useState<string | null>(null)
+  const [useStreaming, setUseStreaming] = useState(true)
+  const [useAgentic, setUseAgentic] = useState(true)
+  const [useWebSearch, setUseWebSearch] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -359,33 +368,99 @@ export default function ChatPage() {
     }
     setIsLoading(true)
 
-    try {
-      const response = await query(question, sessionId || undefined, 5, selectedSourceFilter || undefined)
-      setSessionId(response.session_id)
+    // Create placeholder assistant message
+    const assistantMessageId = (Date.now() + 1).toString()
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      citations: [],
+      timestamp: new Date(),
+    }
+    setMessages(prev => [...prev, assistantMessage])
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.answer,
-        citations: response.citations,
-        timestamp: new Date(),
-      }
+    if (useStreaming) {
+      // Use streaming with agentic features
+      let accumulatedContent = ''
+      let webSearchResults: any[] = []
+      let plan: any = null
+      let toolsUsed: Array<{ name: string; result?: any }> = []
+      
+      await queryStream(
+        question,
+        sessionId || undefined,
+        5,
+        selectedSourceFilter || undefined,
+        useAgentic,
+        useWebSearch,
+        (event: StreamEvent) => {
+          if (event.type === 'chunk') {
+            accumulatedContent += event.content || ''
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, content: accumulatedContent }
+                : msg
+            ))
+          } else if (event.type === 'web_search') {
+            webSearchResults = event.web_search || []
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, webSearchResults }
+                : msg
+            ))
+          } else if (event.type === 'done') {
+            setSessionId(event.session_id || sessionId || null)
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { 
+                    ...msg, 
+                    citations: event.citations || [],
+                    plan,
+                    toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
+                  }
+                : msg
+            ))
+            setIsLoading(false)
+          } else if (event.type === 'error') {
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, error: true, errorMessage: event.error || 'Unknown error', content: '' }
+                : msg
+            ))
+            setIsLoading(false)
+            toast.error(event.error || 'Unknown error')
+          }
+        }
+      )
+    } else {
+      // Use regular query
+      try {
+        const response = await query(
+          question, 
+          sessionId || undefined, 
+          5, 
+          selectedSourceFilter || undefined,
+          useAgentic,
+          useWebSearch
+        )
+        setSessionId(response.session_id)
 
-      setMessages(prev => [...prev, assistantMessage])
-    } catch (error: any) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        error: true,
-        errorMessage: error.message || 'Failed to get response'
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessageId 
+            ? { ...msg, content: response.answer, citations: response.citations }
+            : msg
+        ))
+      } catch (error: any) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === assistantMessageId 
+            ? { ...msg, error: true, errorMessage: error.message || 'Failed to get response', content: '' }
+            : msg
+        ))
+        toast.error(error.message || 'Failed to get response')
+        console.error(error)
+      } finally {
+        setIsLoading(false)
       }
-      setMessages(prev => [...prev, errorMessage])
-      toast.error(error.message || 'Failed to get response')
-      console.error(error)
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -767,6 +842,26 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useAgentic}
+                      onChange={(e) => setUseAgentic(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="hidden sm:inline">Agentic</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useWebSearch}
+                      onChange={(e) => setUseWebSearch(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="hidden sm:inline">Web Search</span>
+                  </label>
+                </div>
                 <div className="relative" ref={exportMenuRef}>
                   <button
                     onClick={() => setShowExportMenu(!showExportMenu)}
@@ -953,6 +1048,15 @@ export default function ChatPage() {
                 .map((message, index) => {
                   const originalIndex = messages.findIndex(m => m.id === message.id)
                   return (
+                    {message.role === 'assistant' && message.plan && (
+                      <AgentThinking isThinking={false} plan={message.plan} />
+                    )}
+                    {message.role === 'assistant' && message.webSearchResults && message.webSearchResults.length > 0 && (
+                      <WebSearchResults results={message.webSearchResults} />
+                    )}
+                    {message.role === 'assistant' && message.toolsUsed && message.toolsUsed.map((tool, idx) => (
+                      <ToolUsage key={idx} toolName={tool.name} toolResult={tool.result} />
+                    ))}
                     <MessageBubble
                       key={message.id}
                       message={message}
@@ -1214,6 +1318,7 @@ interface MessageBubbleProps {
   onDelete?: () => void
   onRegenerate?: () => void
   onCopy?: () => void
+  onRetry?: () => void
   canRegenerate?: boolean
   isRegenerating?: boolean
   highlightText?: string
@@ -1230,6 +1335,7 @@ function MessageBubble({
   onDelete,
   onRegenerate,
   onCopy,
+  onRetry,
   canRegenerate = false,
   isRegenerating = false,
   highlightText = ''
@@ -1237,6 +1343,32 @@ function MessageBubble({
   const isUser = message.role === 'user'
   const [showCitations, setShowCitations] = useState(false)
   const [showActions, setShowActions] = useState(false)
+
+  if (message.error) {
+    return (
+      <div className="flex gap-4 fade-in">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center flex-shrink-0">
+          <X className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 max-w-[80%]">
+          <div className="inline-block rounded-2xl px-5 py-3 bg-red-500/10 border border-red-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-red-400 font-semibold text-sm">Error</span>
+            </div>
+            <p className="text-red-300 text-sm mb-3">{message.errorMessage || 'An error occurred'}</p>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg transition-colors text-red-300"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const highlightTextInContent = (content: string, query: string) => {
     if (!query) return content

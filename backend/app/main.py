@@ -1,18 +1,42 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Header, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from contextlib import asynccontextmanager
 import uuid
 import asyncio
+import json
 from datetime import datetime
+import os
 
 from app.config import get_settings
 from app.auth import get_user_id, get_current_user, GOOGLE_CLIENT_ID
+from app.middleware.logging import RequestLoggingMiddleware
+from app.middleware.security import SecurityMiddleware
+from app.middleware.rate_limit import limiter
+
+# Initialize Sentry if DSN is provided
+settings = get_settings()
+if settings.sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.asyncio import AsyncioIntegration
+    
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[
+            FastApiIntegration(),
+            AsyncioIntegration(),
+        ],
+        traces_sample_rate=1.0 if settings.environment == "production" else 0.1,
+        environment=settings.environment,
+    )
 
 # Global instances (initialized on startup)
 vector_store = None
 query_engine = None
+agentic_engine = None
 cleanup_task = None
 
 
@@ -34,15 +58,18 @@ async def periodic_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize components on startup."""
-    global vector_store, query_engine, cleanup_task
+    global vector_store, query_engine, agentic_engine, cleanup_task
 
     try:
         from app.rag.vectorstore import VectorStore
         from app.rag.query import RAGQueryEngine
+        from app.rag.agent.agentic_engine import AgenticRAGEngine
 
         vector_store = VectorStore()
         query_engine = RAGQueryEngine(vector_store)
+        agentic_engine = AgenticRAGEngine(vector_store)
         print("Successfully connected to Qdrant Cloud!")
+        print("Agentic RAG Engine initialized!")
 
         # Start background cleanup task
         cleanup_task = asyncio.create_task(periodic_cleanup())
@@ -71,9 +98,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="RAG Study Assistant API",
     description="Ingest GitHub repos, PDFs, and web content. Ask questions with cited answers. Data auto-deletes after 1 hour.",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
+
+# Add middleware (order matters - logging first, then security)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(SecurityMiddleware)
 
 # CORS - Allow all origins (required for Vercel/Render deployment)
 app.add_middleware(
@@ -83,6 +114,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting
+app.state.limiter = limiter
 
 
 # ========================
@@ -101,6 +135,8 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = None
     top_k: int = 5
     source_filter: Optional[str] = None
+    use_agentic: bool = True
+    use_web_search: bool = False
 
 class Citation(BaseModel):
     source: str
@@ -273,25 +309,29 @@ async def ingest_web_url(
 # ========================
 
 @app.post("/query", response_model=QueryResponse)
+@limiter.limit("60/minute")
 async def query(
-    request: QueryRequest,
+    request: Request,
+    query_request: QueryRequest,
     authorization: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None)
 ):
     """Ask a question and get an answer with citations."""
-    if not query_engine:
+    if not agentic_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
 
-    session_id = request.session_id or str(uuid.uuid4())
+    session_id = query_request.session_id or str(uuid.uuid4())
     user_id = get_user_id(authorization, x_user_id)
 
     try:
-        answer, citations = await query_engine.query(
-            question=request.question,
+        answer, citations, metadata = await agentic_engine.query(
+            question=query_request.question,
             session_id=session_id,
-            top_k=request.top_k,
-            source_filter=request.source_filter,
-            user_id=user_id
+            top_k=query_request.top_k,
+            source_filter=query_request.source_filter,
+            user_id=user_id,
+            use_agentic=query_request.use_agentic,
+            use_web_search=query_request.use_web_search
         )
         return QueryResponse(
             answer=answer,
@@ -380,33 +420,105 @@ class ModelConfig(BaseModel):
 @app.get("/settings/model")
 async def get_model_settings():
     """Get current LLM model configuration."""
-    if not query_engine:
+    if not agentic_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
 
-    return query_engine.get_current_config()
+    return agentic_engine.get_current_config()
 
 
 @app.post("/settings/model")
 async def set_model_settings(config: ModelConfig):
     """Switch LLM provider/model."""
-    if not query_engine:
+    if not agentic_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
 
     try:
-        query_engine.set_provider(config.provider, config.model)
+        agentic_engine.set_provider(config.provider, config.model)
         return {
             "message": f"Switched to {config.provider}",
-            **query_engine.get_current_config()
+            **agentic_engine.get_current_config()
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/settings/providers")
+async def get_available_providers():
+    """Get list of available providers and their models."""
+    from app.rag.providers.factory import ProviderFactory
+    factory = ProviderFactory()
+    
+    providers_info = {}
+    for provider_name in factory.get_available_providers():
+        provider = factory.create_provider(provider_name)
+        if provider:
+            providers_info[provider_name] = {
+                "models": provider.get_available_models(),
+                "supports_function_calling": provider.supports_function_calling()
+            }
+    
+    return {"providers": providers_info}
+
+
 @app.post("/conversations/{session_id}/clear")
 async def clear_conversation(session_id: str):
     """Clear conversation history for a session."""
-    if not query_engine:
+    if not agentic_engine:
         raise HTTPException(status_code=503, detail="Query engine not initialized")
     
-    query_engine.clear_conversation(session_id)
+    agentic_engine.clear_conversation(session_id)
     return {"message": "Conversation cleared"}
+
+
+@app.get("/analytics/metrics")
+async def get_metrics():
+    """Get usage metrics."""
+    from app.analytics.metrics import metrics_collector
+    return metrics_collector.get_total_stats()
+
+
+@app.get("/analytics/providers/{provider}")
+async def get_provider_metrics(provider: str):
+    """Get metrics for a specific provider."""
+    from app.analytics.metrics import metrics_collector
+    return metrics_collector.get_provider_stats(provider)
+
+
+@app.post("/query/stream")
+@limiter.limit("60/minute")
+async def query_stream(
+    request: Request,
+    query_request: QueryRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
+    """Stream query responses token-by-token."""
+    if not agentic_engine:
+        raise HTTPException(status_code=503, detail="Query engine not initialized")
+
+    session_id = query_request.session_id or str(uuid.uuid4())
+    user_id = get_user_id(authorization, x_user_id)
+
+    async def generate_stream():
+        try:
+            async for event in agentic_engine.query_stream(
+                question=query_request.question,
+                session_id=session_id,
+                top_k=query_request.top_k,
+                source_filter=query_request.source_filter,
+                user_id=user_id,
+                use_agentic=query_request.use_agentic,
+                use_web_search=query_request.use_web_search
+            ):
+                if event.get("type") == "chunk":
+                    yield f"data: {json.dumps({'chunk': event.get('content'), 'session_id': event.get('session_id')})}\n\n"
+                elif event.get("type") == "web_search":
+                    yield f"data: {json.dumps({'web_search': event.get('results'), 'session_id': session_id})}\n\n"
+                elif event.get("type") == "done":
+                    yield f"data: {json.dumps({'done': True, 'citations': event.get('citations'), 'session_id': event.get('session_id')})}\n\n"
+                elif event.get("type") == "error":
+                    yield f"data: {json.dumps({'error': event.get('error')})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")

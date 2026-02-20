@@ -134,7 +134,9 @@ export const query = async (
   question: string,
   sessionId?: string,
   topK: number = 5,
-  sourceFilter?: string
+  sourceFilter?: string,
+  useAgentic: boolean = true,
+  useWebSearch: boolean = false
 ): Promise<QueryResponse> => {
   return apiCall<QueryResponse>('/query', {
     method: 'POST',
@@ -143,6 +145,8 @@ export const query = async (
       session_id: sessionId,
       top_k: topK,
       source_filter: sourceFilter,
+      use_agentic: useAgentic,
+      use_web_search: useWebSearch,
     }),
   })
 }
@@ -211,6 +215,120 @@ export const clearConversation = async (sessionId: string): Promise<{ message: s
   return apiCall(`/conversations/${sessionId}/clear`, {
     method: 'POST',
   })
+}
+
+export interface WebSearchResult {
+  title: string
+  url: string
+  snippet: string
+  score?: number
+}
+
+export interface StreamEvent {
+  type: 'chunk' | 'web_search' | 'done' | 'error' | 'thinking' | 'tool'
+  content?: string
+  web_search?: WebSearchResult[]
+  citations?: Citation[]
+  session_id?: string
+  error?: string
+  tool_name?: string
+  tool_result?: any
+}
+
+export const queryStream = async (
+  question: string,
+  sessionId: string | undefined,
+  topK: number = 5,
+  sourceFilter?: string,
+  useAgentic: boolean = true,
+  useWebSearch: boolean = false,
+  onEvent: (event: StreamEvent) => void
+): Promise<void> => {
+  const authHeaders = getAuthHeaders()
+  
+  try {
+    const response = await fetch(`${API_URL}/query/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify({
+        question,
+        session_id: sessionId,
+        top_k: topK,
+        source_filter: sourceFilter,
+        use_agentic: useAgentic,
+        use_web_search: useWebSearch,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Stream error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      throw new Error('No reader available')
+    }
+
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            
+            if (data.chunk) {
+              onEvent({ type: 'chunk', content: data.chunk, session_id: data.session_id })
+            }
+            if (data.web_search) {
+              onEvent({ type: 'web_search', web_search: data.web_search, session_id: data.session_id })
+            }
+            if (data.done) {
+              onEvent({ type: 'done', citations: data.citations || [], session_id: data.session_id })
+              return
+            }
+            if (data.error) {
+              onEvent({ type: 'error', error: data.error })
+              return
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e)
+          }
+        }
+      }
+    }
+  } catch (error: any) {
+    onEvent({ type: 'error', error: error.message || 'Streaming failed' })
+  }
+}
+
+export const getAvailableProviders = async (): Promise<{
+  providers: Record<string, {
+    models: string[]
+    supports_function_calling: boolean
+  }>
+}> => {
+  return apiCall('/settings/providers')
+}
+
+export const getMetrics = async (): Promise<any> => {
+  return apiCall('/analytics/metrics')
+}
+
+export const getProviderMetrics = async (provider: string): Promise<any> => {
+  return apiCall(`/analytics/providers/${provider}`)
 }
 
 export default {
