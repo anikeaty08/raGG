@@ -238,11 +238,11 @@ export interface StreamEvent {
 export const queryStream = async (
   question: string,
   sessionId: string | undefined,
+  onEvent: (event: StreamEvent) => void,
   topK: number = 5,
   sourceFilter?: string,
   useAgentic: boolean = true,
-  useWebSearch: boolean = false,
-  onEvent: (event: StreamEvent) => void
+  useWebSearch: boolean = false
 ): Promise<void> => {
   const authHeaders = getAuthHeaders()
   

@@ -1,9 +1,11 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText, Cpu, CheckCircle, MessageSquare, Edit2, MoreVertical, Copy, RotateCcw, Download, Search } from 'lucide-react'
-import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders } from '@/lib/api'
+import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders, WebSearchResult, clearConversation } from '@/lib/api'
 import AgentThinking from '@/components/AgentThinking'
 import WebSearchResults from '@/components/WebSearchResults'
 import ToolUsage from '@/components/ToolUsage'
@@ -14,7 +16,7 @@ import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-interface Message {
+export interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
@@ -22,8 +24,11 @@ interface Message {
   timestamp: Date
   error?: boolean
   errorMessage?: string
-  webSearchResults?: any[]
-  plan?: any
+  webSearchResults?: WebSearchResult[]
+  plan?: {
+    steps?: Array<{ type: string; reason: string }>
+    requires_tools?: boolean
+  }
   toolsUsed?: Array<{ name: string; result?: any }>
 }
 
@@ -382,17 +387,13 @@ export default function ChatPage() {
     if (useStreaming) {
       // Use streaming with agentic features
       let accumulatedContent = ''
-      let webSearchResults: any[] = []
-      let plan: any = null
+      let webSearchResults: WebSearchResult[] = []
+      let plan: { steps?: Array<{ type: string; reason: string }>; requires_tools?: boolean } | undefined = undefined
       let toolsUsed: Array<{ name: string; result?: any }> = []
       
       await queryStream(
         question,
         sessionId || undefined,
-        5,
-        selectedSourceFilter || undefined,
-        useAgentic,
-        useWebSearch,
         (event: StreamEvent) => {
           if (event.type === 'chunk') {
             accumulatedContent += event.content || ''
@@ -415,8 +416,8 @@ export default function ChatPage() {
                 ? { 
                     ...msg, 
                     citations: event.citations || [],
-                    plan,
-                    toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined
+                    ...(plan ? { plan } : {}),
+                    ...(toolsUsed.length > 0 ? { toolsUsed } : {})
                   }
                 : msg
             ))
@@ -430,7 +431,11 @@ export default function ChatPage() {
             setIsLoading(false)
             toast.error(event.error || 'Unknown error')
           }
-        }
+        },
+        5,
+        selectedSourceFilter || undefined,
+        useAgentic,
+        useWebSearch
       )
     } else {
       // Use regular query
@@ -1048,17 +1053,17 @@ export default function ChatPage() {
                 .map((message, index) => {
                   const originalIndex = messages.findIndex(m => m.id === message.id)
                   return (
-                    {message.role === 'assistant' && message.plan && (
-                      <AgentThinking isThinking={false} plan={message.plan} />
-                    )}
-                    {message.role === 'assistant' && message.webSearchResults && message.webSearchResults.length > 0 && (
-                      <WebSearchResults results={message.webSearchResults} />
-                    )}
-                    {message.role === 'assistant' && message.toolsUsed && message.toolsUsed.map((tool, idx) => (
-                      <ToolUsage key={idx} toolName={tool.name} toolResult={tool.result} />
-                    ))}
-                    <MessageBubble
-                      key={message.id}
+                    <div key={message.id}>
+                      {message.role === 'assistant' && message.plan && (
+                        <AgentThinking isThinking={false} plan={message.plan} />
+                      )}
+                      {message.role === 'assistant' && message.webSearchResults && message.webSearchResults.length > 0 && (
+                        <WebSearchResults results={message.webSearchResults} />
+                      )}
+                      {message.role === 'assistant' && message.toolsUsed && message.toolsUsed.map((tool, idx) => (
+                        <ToolUsage key={idx} toolName={tool.name} toolResult={tool.result} />
+                      ))}
+                      <MessageBubble
                       message={message}
                       isEditing={editingMessageId === message.id}
                       editingContent={editingMessageContent}
@@ -1071,12 +1076,13 @@ export default function ChatPage() {
                       onEdit={() => handleEditMessage(message.id)}
                       onDelete={() => handleDeleteMessage(message.id)}
                   onRegenerate={() => handleRegenerate(message.id)}
-                  onCopy={() => handleCopyMessage(message.content)}
+                  onCopy={handleCopyMessage}
                   onRetry={message.error ? () => handleRetry(message.id) : undefined}
                   canRegenerate={message.role === 'assistant' && originalIndex > 0 && messages[originalIndex - 1].role === 'user'}
                   isRegenerating={regeneratingMessageId === message.id}
                   highlightText={searchQuery}
                     />
+                    </div>
                   )
                 })}
               {isLoading && <TypingIndicator />}
@@ -1317,7 +1323,7 @@ interface MessageBubbleProps {
   onEdit?: () => void
   onDelete?: () => void
   onRegenerate?: () => void
-  onCopy?: () => void
+  onCopy?: (content: string) => void
   onRetry?: () => void
   canRegenerate?: boolean
   isRegenerating?: boolean
@@ -1486,7 +1492,7 @@ function MessageBubble({
                   <div className={`absolute top-2 ${isUser ? 'left-2' : 'right-2'} flex gap-1 bg-[#0a0a0f]/90 backdrop-blur-sm rounded-lg p-1 border border-[rgba(255,255,255,0.1)]`}>
                     {onCopy && (
                       <button
-                        onClick={onCopy}
+                        onClick={() => onCopy(message.content)}
                         className="p-1.5 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
                         title="Copy"
                       >
@@ -1573,7 +1579,7 @@ function MessageBubble({
                         </div>
                       </div>
                       <button
-                        onClick={() => handleCopyMessage(citation.content)}
+                        onClick={() => onCopy?.(citation.content)}
                         className="opacity-0 group-hover/citation:opacity-100 transition-opacity p-1 hover:bg-[rgba(255,255,255,0.1)] rounded"
                         title="Copy citation"
                       >

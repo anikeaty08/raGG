@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Github, FileText, Globe, Trash2, X, Upload, Loader2, RefreshCw, AlertCircle, Clock } from 'lucide-react'
 import { listSources, deleteSource, clearAllSources, ingestGitHub, ingestPDF, ingestURL, Source } from '@/lib/api'

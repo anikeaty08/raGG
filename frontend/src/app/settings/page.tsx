@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import { Settings, Server, Clock, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Info, Cpu, Sparkles } from 'lucide-react'
 import { healthCheck, clearAllSources, getModelSettings, setModelSettings, HealthStatus, ModelConfig } from '@/lib/api'

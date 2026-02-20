@@ -99,6 +99,23 @@ function AuthButton() {
 }
 
 function ThemeToggle() {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  if (!mounted) {
+    return (
+      <button
+        className="p-2 rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+        title="Toggle theme"
+      >
+        <Sun className="w-5 h-5 text-yellow-400" />
+      </button>
+    )
+  }
+  
   const { theme, toggleTheme } = useTheme()
   return (
     <button
