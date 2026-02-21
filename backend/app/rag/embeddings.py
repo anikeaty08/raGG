@@ -4,8 +4,7 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Initialize client
-client = genai.Client(api_key=settings.gemini_api_key)
+client = genai.Client(api_key=settings.gemini_api_key) if settings.gemini_api_key else None
 
 
 class GeminiEmbeddings:
@@ -23,10 +22,13 @@ class GeminiEmbeddings:
 
     def __init__(self):
         self.model = self.MODELS[0]
-        self._test_model()
+        if client:
+            self._test_model()
 
     def _test_model(self):
         """Test which embedding model is available."""
+        if not client:
+            return
         for model in self.MODELS:
             try:
                 response = client.models.embed_content(
@@ -46,6 +48,8 @@ class GeminiEmbeddings:
 
     def embed_text(self, text: str) -> list[float]:
         """Generate embedding for a single text."""
+        if not client:
+            return [0.0] * self.VECTOR_SIZE
         try:
             response = client.models.embed_content(
                 model=self.model,
@@ -59,6 +63,8 @@ class GeminiEmbeddings:
 
     def embed_query(self, query: str) -> list[float]:
         """Generate embedding for a query."""
+        if not client:
+            return [0.0] * self.VECTOR_SIZE
         try:
             response = client.models.embed_content(
                 model=self.model,
@@ -79,16 +85,18 @@ class GeminiEmbeddings:
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             for text in batch:
-                try:
-                    response = client.models.embed_content(
-                        model=self.model,
-                        contents=text,
-                        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-                    )
-                    all_embeddings.append(response.embeddings[0].values)
-                except Exception as e:
-                    print(f"Error embedding text: {e}")
-                    # Return zero vector on error
+                if not client:
                     all_embeddings.append([0.0] * self.VECTOR_SIZE)
+                else:
+                    try:
+                        response = client.models.embed_content(
+                            model=self.model,
+                            contents=text,
+                            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+                        )
+                        all_embeddings.append(response.embeddings[0].values)
+                    except Exception as e:
+                        print(f"Error embedding text: {e}")
+                        all_embeddings.append([0.0] * self.VECTOR_SIZE)
 
         return all_embeddings

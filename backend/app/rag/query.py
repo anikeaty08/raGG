@@ -10,8 +10,9 @@ from app.rag.vectorstore import VectorStore
 settings = get_settings()
 
 # Initialize clients
-gemini_client = genai.Client(api_key=settings.gemini_api_key)
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+gemini_client = genai.Client(api_key=settings.gemini_api_key) if settings.gemini_api_key else None
+groq_api_key = os.getenv("GROQ_API_KEY", "")
+groq_client = Groq(api_key=groq_api_key) if groq_api_key else None
 
 
 class RAGQueryEngine:
@@ -172,6 +173,8 @@ Give a helpful, natural response:"""
 
     async def _generate_gemini(self, prompt: str, session_id: str) -> str:
         """Generate using Gemini with conversation history."""
+        if not gemini_client:
+            return "Gemini API key not configured."
         # Get conversation history for this session
         history = self.conversations.get(session_id, [])
         
@@ -225,6 +228,8 @@ Give a helpful, natural response:"""
 
     async def _generate_groq(self, prompt: str, session_id: str) -> str:
         """Generate using Groq (LLaMA) with conversation history."""
+        if not groq_client:
+            return "Groq API key not configured."
         # Get conversation history for this session
         history = self.conversations.get(session_id, [])
         
@@ -311,6 +316,9 @@ Your helpful response:"""
 
     async def _generate_gemini_stream(self, prompt: str, session_id: str):
         """Generate using Gemini with streaming."""
+        if not gemini_client:
+            yield "Gemini API key not configured."
+            return
         history = self.conversations.get(session_id, [])
         messages = []
         
@@ -347,6 +355,9 @@ Your helpful response:"""
 
     async def _generate_groq_stream(self, prompt: str, session_id: str):
         """Generate using Groq with streaming."""
+        if not groq_client:
+            yield "Groq API key not configured."
+            return
         history = self.conversations.get(session_id, [])
         messages = [{"role": "system", "content": "You are a helpful, friendly study tutor."}]
         
