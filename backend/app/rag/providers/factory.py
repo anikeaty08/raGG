@@ -3,7 +3,8 @@ import os
 from app.config import get_settings
 from .base import LLMProvider
 from .anthropic import AnthropicProvider
-from .openai import OpenAIProvider
+# OpenAI provider temporarily disabled due to missing file
+# from .openai import OpenAIProvider
 from .gemini import GeminiProvider
 from .groq import GroqProvider
 
@@ -24,11 +25,11 @@ class ProviderFactory:
             default_model = "claude-3-5-sonnet-20241022"
             return AnthropicProvider(settings.anthropic_api_key, model or default_model)
         
-        elif provider_name == "openai":
-            if not settings.openai_api_key:
-                return None
-            default_model = "gpt-4o-mini"
-            return OpenAIProvider(settings.openai_api_key, model or default_model)
+        # elif provider_name == "openai":
+        #     if not settings.openai_api_key:
+        #         return None
+        #     default_model = "gpt-4o-mini"
+        #     return OpenAIProvider(settings.openai_api_key, model or default_model)
         
         elif provider_name == "gemini":
             if not settings.gemini_api_key:
@@ -51,8 +52,8 @@ class ProviderFactory:
         
         if settings.anthropic_api_key:
             available.append("anthropic")
-        if settings.openai_api_key:
-            available.append("openai")
+        # if settings.openai_api_key:
+        #     available.append("openai")
         if settings.gemini_api_key:
             available.append("gemini")
         if settings.groq_api_key:
@@ -63,8 +64,8 @@ class ProviderFactory:
     @staticmethod
     def get_default_provider() -> Optional[LLMProvider]:
         """Get default provider based on available API keys."""
-        # Priority: Anthropic > OpenAI > Gemini > Groq
-        providers = ["anthropic", "openai", "gemini", "groq"]
+        # Priority: Anthropic > Gemini > Groq (OpenAI removed)
+        providers = ["anthropic", "gemini", "groq"]
         
         for provider_name in providers:
             provider = ProviderFactory.create_provider(provider_name)

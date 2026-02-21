@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { Settings, Server, Clock, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Info, Cpu, Sparkles } from 'lucide-react'
-import { healthCheck, clearAllSources, getModelSettings, setModelSettings, HealthStatus, ModelConfig } from '@/lib/api'
+import { healthCheck, clearAllSources, getModelSettings, setModelSettings, getWorkingProviders, HealthStatus, ModelConfig } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 const MODEL_INFO = {
@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null)
   const [loadingModel, setLoadingModel] = useState(true)
   const [switchingModel, setSwitchingModel] = useState(false)
+  const [workingProviders, setWorkingProviders] = useState<Record<string, string[]> | null>(null)
 
   const checkHealth = async () => {
     setChecking(true)
@@ -67,6 +68,7 @@ export default function SettingsPage() {
   useEffect(() => {
     checkHealth()
     loadModelConfig()
+    getWorkingProviders().then(setWorkingProviders).catch(() => setWorkingProviders(null))
   }, [])
 
   const handleSwitchModel = async (provider: string, model?: string) => {
@@ -127,7 +129,8 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(MODEL_INFO).map(([key, info]) => {
                 const isActive = modelConfig.provider === key
-                const isAvailable = modelConfig.available_providers.includes(key)
+                const inWorking = workingProviders === null || workingProviders[key]
+                const isAvailable = modelConfig.available_providers.includes(key) && inWorking
 
                 return (
                   <button
@@ -154,8 +157,11 @@ export default function SettingsPage() {
                         <p className="text-xs text-[#64748b]">{info.description}</p>
                       </div>
                     </div>
-                    {!isAvailable && (
+                    {!modelConfig.available_providers.includes(key) && (
                       <p className="text-xs text-amber-400 mt-2">API key not configured</p>
+                    )}
+                    {modelConfig.available_providers.includes(key) && !inWorking && workingProviders !== null && (
+                      <p className="text-xs text-amber-400 mt-2">API unreachable or model failed</p>
                     )}
                   </button>
                 )
@@ -171,9 +177,14 @@ export default function SettingsPage() {
             {/* Model Variants */}
             {modelConfig.provider && MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO] && (
               <div>
-                <p className="text-sm text-[#64748b] mb-3">Available Models</p>
+                <p className="text-sm text-[#64748b] mb-3">Available Models (working only)</p>
                 <div className="space-y-2">
-                  {MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models.map((model) => (
+                  {(workingProviders?.[modelConfig.provider]
+                    ? MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models.filter((m) =>
+                        workingProviders[modelConfig.provider].includes(m.id)
+                      )
+                    : MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models
+                  ).map((model) => (
                     <button
                       key={model.id}
                       onClick={() => handleSwitchModel(modelConfig.provider, model.id)}

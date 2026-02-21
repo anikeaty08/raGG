@@ -9,6 +9,7 @@ import asyncio
 import json
 from datetime import datetime
 import os
+import traceback
 
 from app.config import get_settings
 from app.auth import get_user_id, get_current_user, GOOGLE_CLIENT_ID
@@ -82,6 +83,7 @@ async def lifespan(app: FastAPI):
 
     except Exception as e:
         print(f"Warning: Could not initialize vector store: {e}")
+        traceback.print_exc()
         print("App will start but ingestion/query features may not work.")
 
     yield
@@ -513,6 +515,34 @@ async def get_available_providers():
             }
     
     return {"providers": providers_info}
+
+
+@app.get("/settings/providers/working")
+async def get_working_providers():
+    """Test each configured provider with a minimal generate; return only working provider/models."""
+    from app.rag.providers.factory import ProviderFactory
+    from app.rag.providers.base import LLMMessage
+    import asyncio
+
+    factory = ProviderFactory()
+    working = {}
+    test_message = [LLMMessage(role="user", content="Say OK")]
+    timeout_sec = 8
+
+    for provider_name in factory.get_available_providers():
+        provider = factory.create_provider(provider_name)
+        if not provider:
+            continue
+        try:
+            await asyncio.wait_for(
+                provider.generate(messages=test_message, max_tokens=10),
+                timeout=timeout_sec,
+            )
+            working[provider_name] = provider.get_available_models()
+        except (asyncio.TimeoutError, Exception):
+            continue
+
+    return {"working_providers": working}
 
 
 @app.post("/conversations/{session_id}/clear")

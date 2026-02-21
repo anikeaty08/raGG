@@ -30,7 +30,7 @@ class VectorStore:
         self.client = QdrantClient(
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key,
-            timeout=60
+            timeout=15
         )
 
         # Initialize embeddings first to get the vector size

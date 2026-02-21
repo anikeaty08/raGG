@@ -3,6 +3,8 @@ from google import genai
 from .base import LLMProvider, LLMResponse, LLMMessage
 
 
+from google.genai import types
+
 class GeminiProvider(LLMProvider):
     """Google Gemini provider."""
     
@@ -17,7 +19,7 @@ class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         super().__init__(api_key, model)
         self.client = genai.Client(api_key=api_key)
-    
+
     async def generate(
         self,
         messages: List[LLMMessage],
@@ -27,27 +29,31 @@ class GeminiProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Generate a response using Gemini."""
-        # Convert messages to Gemini format
-        gemini_messages = []
         
-        for msg in messages:
-            if msg.role == "user":
-                gemini_messages.append({"role": "user", "parts": [msg.content]})
-            elif msg.role == "assistant":
-                gemini_messages.append({"role": "model", "parts": [msg.content]})
-        
-        # Add system prompt if provided
+        # Add system prompt to messages if provided
+        final_messages = []
         if system_prompt:
-            gemini_messages.insert(0, {"role": "user", "parts": [system_prompt]})
-        
+            final_messages.append(types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=system_prompt)]
+            ))
+            
+        for msg in messages:
+            role = "model" if msg.role == "assistant" else "user"
+            final_messages.append(types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=msg.content)]
+            ))
+
         try:
+            # Use config for generation configuration
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=gemini_messages if len(gemini_messages) > 1 else gemini_messages[0]["parts"][0] if gemini_messages else "",
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_tokens or 8192,
-                },
+                contents=final_messages,
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens or 8192,
+                ),
                 **kwargs
             )
             
@@ -57,8 +63,8 @@ class GeminiProvider(LLMProvider):
                 content=content,
                 model=self.model,
                 provider="gemini",
-                tokens_used=None,  # Gemini doesn't always provide token counts
-                cost=0.0,  # Free tier
+                tokens_used=None,
+                cost=0.0,
                 finish_reason=None
             )
         except Exception as e:
@@ -73,25 +79,29 @@ class GeminiProvider(LLMProvider):
         **kwargs
     ) -> AsyncIterator[str]:
         """Generate a streaming response."""
-        gemini_messages = []
         
-        for msg in messages:
-            if msg.role == "user":
-                gemini_messages.append({"role": "user", "parts": [msg.content]})
-            elif msg.role == "assistant":
-                gemini_messages.append({"role": "model", "parts": [msg.content]})
-        
+        final_messages = []
         if system_prompt:
-            gemini_messages.insert(0, {"role": "user", "parts": [system_prompt]})
+            final_messages.append(types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=system_prompt)]
+            ))
+            
+        for msg in messages:
+            role = "model" if msg.role == "assistant" else "user"
+            final_messages.append(types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=msg.content)]
+            ))
         
         try:
             response = self.client.models.generate_content_stream(
                 model=self.model,
-                contents=gemini_messages if len(gemini_messages) > 1 else gemini_messages[0]["parts"][0] if gemini_messages else "",
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_tokens or 8192,
-                },
+                contents=final_messages,
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens or 8192,
+                ),
                 **kwargs
             )
             

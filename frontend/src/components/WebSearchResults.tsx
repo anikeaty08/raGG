@@ -27,7 +27,7 @@ export default function WebSearchResults({ results }: WebSearchResultsProps) {
             href={result.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block p-3 bg-white dark:bg-gray-800 bg-white rounded border border-green-200 dark:border-green-700 border-pink-200/50 hover:border-green-400 dark:hover:border-green-600 hover:border-pink-400 transition-colors"
+            className="block p-3 bg-white dark:bg-gray-800 rounded border border-green-200 dark:border-green-700 border-pink-200/50 hover:border-green-400 dark:hover:border-green-600 hover:border-pink-400 transition-colors"
           >
             <div className="text-xs text-green-600 dark:text-green-400 text-pink-600 mb-1 truncate">
               {result.url}

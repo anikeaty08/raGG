@@ -66,7 +66,7 @@ function AuthButton() {
         {showMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-[#15151f] dark:bg-[#15151f] border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
               <div className="p-3 border-b border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/20">
                 <p className="text-sm font-medium truncate">{user.name}</p>
                 <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 truncate">{user.email}</p>
@@ -179,7 +179,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   ]
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[#fef7ff] dark:bg-[#0a0a0f]">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -190,7 +190,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#0a0a0f]/95 dark:bg-[#0a0a0f]/95 bg-white/95 backdrop-blur-xl border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 flex flex-col z-40 transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#fef7ff] dark:bg-[#0a0a0f] border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 flex flex-col z-40 transition-transform duration-300 backdrop-blur-xl ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -273,7 +273,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20 bg-[#0a0a0f]/50 dark:bg-[#0a0a0f]/50 bg-white/80 backdrop-blur-xl">
+        <footer className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20 bg-[#fef7ff] dark:bg-[#0a0a0f] backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               {/* Left - Branding */}
@@ -333,11 +333,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <title>RAG Study Assistant</title>
         <meta name="description" content="AI-powered study assistant with RAG" />
         <link rel="icon" href="/favicon.ico" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('theme');var light=t==='light'||(t!=='dark'&&!window.matchMedia('(prefers-color-scheme: dark)').matches);var el=document.documentElement;if(light){el.classList.add('light');el.classList.remove('dark');}else{el.classList.add('dark');el.classList.remove('light');}})();`,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider>

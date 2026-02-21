@@ -331,6 +331,12 @@ export const getAvailableProviders = async (): Promise<{
   return apiCall('/settings/providers')
 }
 
+export const getWorkingProviders = async (): Promise<{
+  working_providers: Record<string, string[]>
+}> => {
+  return apiCall('/settings/providers/working')
+}
+
 export const getMetrics = async (): Promise<any> => {
   return apiCall('/analytics/metrics')
 }

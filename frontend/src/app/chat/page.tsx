@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText, Cpu, CheckCircle, MessageSquare, Edit2, MoreVertical, Copy, RotateCcw, Download, Search } from 'lucide-react'
-import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, ingestText, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders, WebSearchResult, clearConversation } from '@/lib/api'
+import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, ingestText, Source, Citation, getModelSettings, setModelSettings, getWorkingProviders, getAvailableProviders, ModelConfig, StreamEvent, WebSearchResult, clearConversation } from '@/lib/api'
 import AgentThinking from '@/components/AgentThinking'
 import WebSearchResults from '@/components/WebSearchResults'
 import ToolUsage from '@/components/ToolUsage'
@@ -50,6 +50,7 @@ export default function ChatPage() {
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [switchingModel, setSwitchingModel] = useState(false)
+  const [workingProviders, setWorkingProviders] = useState<Record<string, string[]> | null>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [showSessionsPanel, setShowSessionsPanel] = useState(false)
@@ -65,6 +66,7 @@ export default function ChatPage() {
   const [useStreaming, setUseStreaming] = useState(true)
   const [useAgentic, setUseAgentic] = useState(true)
   const [useWebSearch, setUseWebSearch] = useState(false)
+  const [availableProviders, setAvailableProviders] = useState<Record<string, { models: string[] }> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -73,30 +75,61 @@ export default function ChatPage() {
   const modelSelectorRef = useRef<HTMLDivElement>(null)
   const sessionsPanelRef = useRef<HTMLDivElement>(null)
 
-  const MODEL_INFO = {
+  const [modelInfo, setModelInfo] = useState<any>({
     gemini: {
-      name: 'Gemini 2.5',
+      name: 'Gemini',
       icon: '✨',
-      models: [
-        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
-        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      ]
+      models: []
     },
     groq: {
-      name: 'LLaMA 3.1',
+      name: 'Groq (LLaMA)',
       icon: '🦙',
-      models: [
-        { id: 'llama-3.1-70b-versatile', name: 'LLaMA 3.1 70B' },
-        { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B' },
-        { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
-      ]
+      models: []
     }
-  }
+  })
 
   useEffect(() => {
     fetchSources()
     loadModelConfig()
+    
+    // Fetch available and working providers
+    const fetchProviders = async () => {
+      try {
+        const [available, working] = await Promise.all([
+          getAvailableProviders(),
+          getWorkingProviders()
+        ])
+        
+        setAvailableProviders(available.providers)
+        setWorkingProviders(working.working_providers)
+        
+        // Update model info with fetched models
+        setModelInfo(prev => {
+          const newInfo = { ...prev }
+          
+          if (available.providers.gemini) {
+            newInfo.gemini.models = available.providers.gemini.models.map(id => ({
+              id,
+              name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            }))
+          }
+          
+          if (available.providers.groq) {
+            newInfo.groq.models = available.providers.groq.models.map(id => ({
+              id,
+              name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            }))
+          }
+          
+          return newInfo
+        })
+      } catch (error) {
+        console.error('Failed to fetch providers:', error)
+      }
+    }
+    
+    fetchProviders()
+
     loadSessions()
     // Create initial session if none exists
     const allSessions = sessionManager.getAllSessions()
@@ -274,7 +307,7 @@ export default function ChatPage() {
       const result = await setModelSettings(provider, model)
       setModelConfig(result)
       setShowModelSelector(false)
-      toast.success(`Switched to ${MODEL_INFO[provider as keyof typeof MODEL_INFO]?.name || provider}`)
+      toast.success(`Switched to ${modelInfo[provider]?.name || provider}`)
     } catch (error: any) {
       toast.error(error.message || 'Failed to switch model')
     } finally {
@@ -772,7 +805,7 @@ export default function ChatPage() {
                 <Cpu className="w-4 h-4" />
                 {modelConfig ? (
                   <span className="hidden sm:inline">
-                    {MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO]?.icon} {modelConfig.model.split('-')[0]}
+                    {modelInfo[modelConfig.provider]?.icon} {modelConfig.model.split('-')[0]}
                   </span>
                 ) : (
                   <span className="hidden sm:inline">Model</span>
@@ -783,9 +816,10 @@ export default function ChatPage() {
               {showModelSelector && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="p-2">
-                    {modelConfig && Object.entries(MODEL_INFO).map(([key, info]) => {
+                    {modelConfig && Object.entries(modelInfo).map(([key, info]: [string, any]) => {
                       const isActive = modelConfig.provider === key
-                      const isAvailable = modelConfig.available_providers.includes(key)
+                      const inWorking = workingProviders === null || workingProviders[key]
+                      const isAvailable = modelConfig.available_providers.includes(key) && inWorking
 
                       return (
                         <div key={key}>
@@ -810,7 +844,10 @@ export default function ChatPage() {
                           </button>
                           {isActive && (
                             <div className="pl-4 pr-2 pb-2 space-y-1">
-                              {info.models.map((model) => (
+                              {(workingProviders?.[key]
+                                ? info.models.filter((m: any) => workingProviders[key].includes(m.id))
+                                : info.models
+                              ).map((model: any) => (
                                 <button
                                   key={model.id}
                                   onClick={() => handleSwitchModel(key, model.id)}
@@ -1031,6 +1068,32 @@ export default function ChatPage() {
                 </div>
               ))}
             </div>
+            
+            {/* Available Models List */}
+            <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
+              <h3 className="text-xs font-semibold text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/80 mb-3 px-3 uppercase tracking-wider flex items-center gap-2">
+                <Cpu className="w-3 h-3" />
+                Available Models
+              </h3>
+              <div className="space-y-3 px-3">
+                {Object.entries(modelInfo).map(([provider, info]: [string, any]) => (
+                  <div key={provider} className="text-sm">
+                    <div className="flex items-center gap-2 text-indigo-300 dark:text-indigo-300 text-pink-600 mb-1">
+                      <span>{info.icon}</span>
+                      <span className="font-medium capitalize">{info.name}</span>
+                    </div>
+                    <div className="pl-6 space-y-1">
+                      {info.models.map((m: any) => (
+                        <div key={m.id} className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 flex items-center gap-1">
+                          <div className="w-1 h-1 rounded-full bg-[#64748b] dark:bg-[#64748b] bg-pink-400"></div>
+                          {m.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1082,6 +1145,13 @@ export default function ChatPage() {
                 )
                 .map((message, index) => {
                   const originalIndex = messages.findIndex(m => m.id === message.id)
+                  
+                  // Hide empty assistant messages if we are loading (TypingIndicator handles it)
+                  // But if content has started streaming, show the message and hide TypingIndicator
+                  if (message.role === 'assistant' && !message.content && isLoading && index === messages.length - 1) {
+                    return null
+                  }
+
                   return (
                     <div key={message.id}>
                       {message.role === 'assistant' && message.plan && (
@@ -1115,7 +1185,7 @@ export default function ChatPage() {
                     </div>
                   )
                 })}
-              {isLoading && <TypingIndicator />}
+              {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
           )}

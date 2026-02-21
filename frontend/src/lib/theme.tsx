@@ -17,11 +17,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    const savedTheme = localStorage.getItem('theme') as Theme
-    if (savedTheme) {
+    const savedTheme = localStorage.getItem('theme') as Theme | null
+    if (savedTheme === 'light' || savedTheme === 'dark') {
       setTheme(savedTheme)
     } else {
-      // Check system preference
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       setTheme(prefersDark ? 'dark' : 'light')
     }
@@ -35,11 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, mounted])
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
-  }
-
-  if (!mounted) {
-    return <>{children}</>
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
   }
 
   return (
