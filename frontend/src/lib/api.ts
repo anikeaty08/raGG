@@ -27,7 +27,7 @@ function getAuthHeaders(): Record<string, string> {
 export interface Source {
   id: string
   name: string
-  type: 'github' | 'pdf' | 'web'
+  type: 'github' | 'pdf' | 'web' | 'text'
   chunks: number
   created_at?: string
   expires_at?: string
@@ -126,6 +126,14 @@ export const ingestURL = async (url: string): Promise<IngestResponse> => {
   return apiCall<IngestResponse>('/ingest/url', {
     method: 'POST',
     body: JSON.stringify({ url }),
+  })
+}
+
+// Ingest raw text
+export const ingestText = async (text: string, name?: string): Promise<IngestResponse> => {
+  return apiCall<IngestResponse>('/ingest/text', {
+    method: 'POST',
+    body: JSON.stringify({ text, name: name || undefined }),
   })
 }
 

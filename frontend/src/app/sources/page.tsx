@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Github, FileText, Globe, Trash2, X, Upload, Loader2, RefreshCw, AlertCircle, Clock } from 'lucide-react'
-import { listSources, deleteSource, clearAllSources, ingestGitHub, ingestPDF, ingestURL, Source } from '@/lib/api'
+import { listSources, deleteSource, clearAllSources, ingestGitHub, ingestPDF, ingestURL, ingestText, Source } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
 
@@ -62,6 +62,7 @@ export default function SourcesPage() {
     github: sources.filter(s => s.type === 'github').length,
     pdf: sources.filter(s => s.type === 'pdf').length,
     web: sources.filter(s => s.type === 'web').length,
+    text: sources.filter(s => s.type === 'text').length,
     chunks: sources.reduce((acc, s) => acc + s.chunks, 0),
   }
 
@@ -86,7 +87,7 @@ export default function SourcesPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <div className="stat-card">
           <div className="stat-card-value">{loading ? '-' : stats.total}</div>
           <div className="stat-card-label">Total Sources</div>
@@ -115,6 +116,13 @@ export default function SourcesPage() {
             <span className="stat-card-value text-2xl">{loading ? '-' : stats.web}</span>
           </div>
           <div className="stat-card-label">Web</div>
+        </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-400" />
+            <span className="stat-card-value text-2xl">{loading ? '-' : stats.text}</span>
+          </div>
+          <div className="stat-card-label">Text</div>
         </div>
       </div>
 
@@ -167,10 +175,12 @@ export default function SourcesPage() {
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                     source.type === 'github' ? 'bg-purple-500/20' :
-                    source.type === 'pdf' ? 'bg-rose-500/20' : 'bg-emerald-500/20'
+                    source.type === 'pdf' ? 'bg-rose-500/20' :
+                    source.type === 'text' ? 'bg-amber-500/20' : 'bg-emerald-500/20'
                   }`}>
                     {source.type === 'github' ? <Github className="w-6 h-6 text-purple-400" /> :
                      source.type === 'pdf' ? <FileText className="w-6 h-6 text-rose-400" /> :
+                     source.type === 'text' ? <FileText className="w-6 h-6 text-amber-400" /> :
                      <Globe className="w-6 h-6 text-emerald-400" />}
                   </div>
                   <div>
@@ -178,7 +188,8 @@ export default function SourcesPage() {
                     <div className="flex items-center gap-3 mt-1">
                       <span className={`badge ${
                         source.type === 'github' ? 'badge-github' :
-                        source.type === 'pdf' ? 'badge-pdf' : 'badge-web'
+                        source.type === 'pdf' ? 'badge-pdf' :
+                        source.type === 'text' ? 'badge-github' : 'badge-web'
                       }`}>
                         {source.type}
                       </span>
@@ -227,11 +238,13 @@ export default function SourcesPage() {
 }
 
 function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [type, setType] = useState<'github' | 'pdf' | 'url'>('github')
+  const [type, setType] = useState<'github' | 'pdf' | 'url' | 'text'>('github')
   const [url, setUrl] = useState('')
   const [branch, setBranch] = useState('main')
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [pastedText, setPastedText] = useState('')
+  const [textName, setTextName] = useState('')
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles[0]) {
@@ -248,7 +261,8 @@ function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (type === 'pdf' && !file) return
-    if (type !== 'pdf' && !url.trim()) return
+    if (type === 'text' && !pastedText.trim()) return
+    if (type !== 'pdf' && type !== 'text' && !url.trim()) return
 
     setLoading(true)
     try {
@@ -261,6 +275,9 @@ function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
       } else if (type === 'url') {
         await ingestURL(url)
         toast.success('URL added!')
+      } else if (type === 'text') {
+        await ingestText(pastedText.trim(), textName.trim() || undefined)
+        toast.success('Text added!')
       }
       onSuccess()
     } catch (error: any) {
@@ -282,7 +299,7 @@ function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
         {/* Source Type Tabs */}
         <div className="tab-list mb-6">
-          {(['github', 'pdf', 'url'] as const).map((t) => (
+          {(['github', 'pdf', 'url', 'text'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setType(t)}
@@ -296,9 +313,13 @@ function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
                 <span className="flex items-center justify-center gap-2">
                   <FileText className="w-4 h-4" /> PDF
                 </span>
-              ) : (
+              ) : t === 'url' ? (
                 <span className="flex items-center justify-center gap-2">
                   <Globe className="w-4 h-4" /> URL
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <FileText className="w-4 h-4" /> Text
                 </span>
               )}
             </button>
@@ -383,13 +404,41 @@ function AddSourceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
             </div>
           )}
 
+          {type === 'text' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Paste your text</label>
+                <textarea
+                  value={pastedText}
+                  onChange={e => setPastedText(e.target.value)}
+                  placeholder="Paste or type any text to add to your knowledge base..."
+                  className="input min-h-[120px] resize-y"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Name (optional)</label>
+                <input
+                  type="text"
+                  value={textName}
+                  onChange={e => setTextName(e.target.value)}
+                  placeholder="e.g. My notes"
+                  className="input"
+                />
+              </div>
+              <p className="text-xs text-[#64748b]">
+                The text will be chunked and indexed. Use for notes, articles, or any content.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 mt-6">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading || (type === 'pdf' ? !file : !url.trim())}
+              disabled={loading || (type === 'pdf' ? !file : type === 'text' ? !pastedText.trim() : !url.trim())}
               className="btn-primary flex-1"
             >
               {loading ? (

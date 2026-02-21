@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Send, Bot, User, Sparkles, ChevronDown, FileCode, Loader2, Trash2, Database, Plus, X, Upload, Github, Globe, FileText, Cpu, CheckCircle, MessageSquare, Edit2, MoreVertical, Copy, RotateCcw, Download, Search } from 'lucide-react'
-import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders, WebSearchResult, clearConversation } from '@/lib/api'
+import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, ingestText, Source, Citation, getModelSettings, setModelSettings, ModelConfig, StreamEvent, getAvailableProviders, WebSearchResult, clearConversation } from '@/lib/api'
 import AgentThinking from '@/components/AgentThinking'
 import WebSearchResults from '@/components/WebSearchResults'
 import ToolUsage from '@/components/ToolUsage'
@@ -40,11 +40,13 @@ export default function ChatPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
   const [showUploadPanel, setShowUploadPanel] = useState(false)
-  const [uploadType, setUploadType] = useState<'pdf' | 'github' | 'url' | null>(null)
+  const [uploadType, setUploadType] = useState<'pdf' | 'github' | 'url' | 'text' | null>(null)
   const [uploading, setUploading] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [githubUrl, setGithubUrl] = useState('')
   const [githubBranch, setGithubBranch] = useState('main')
+  const [pastedText, setPastedText] = useState('')
+  const [textSourceName, setTextSourceName] = useState('')
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null)
   const [showModelSelector, setShowModelSelector] = useState(false)
   const [switchingModel, setSwitchingModel] = useState(false)
@@ -364,6 +366,11 @@ export default function ChatPage() {
     const question = customQuestion || input.trim()
     if (!question || isLoading) return
 
+    if (modelConfig?.provider === 'none') {
+      toast.error('No AI model configured. Add an API key in Settings.')
+      return
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -487,7 +494,7 @@ export default function ChatPage() {
     // Retry the query
     setIsLoading(true)
     try {
-      const response = await query(userMessage.content, sessionId || undefined, 5, selectedSourceFilter || undefined)
+      const response = await query(userMessage.content, sessionId || undefined, 5, selectedSourceFilter || undefined, useAgentic, useWebSearch)
       setSessionId(response.session_id)
 
       const assistantMessage: Message = {
@@ -586,7 +593,7 @@ export default function ChatPage() {
 
     // Re-send the user's question
     try {
-      const response = await query(userMessage.content, sessionId || undefined)
+      const response = await query(userMessage.content, sessionId || undefined, 5, selectedSourceFilter || undefined, useAgentic, useWebSearch)
       setSessionId(response.session_id)
 
       const assistantMessage: Message = {
@@ -704,6 +711,25 @@ export default function ChatPage() {
       setUploadType(null)
     } catch (error: any) {
       toast.error(error.message || 'Failed to add repository')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleTextSubmit = async () => {
+    if (!pastedText.trim()) return
+
+    setUploading(true)
+    try {
+      const result = await ingestText(pastedText.trim(), textSourceName.trim() || undefined)
+      toast.success(`Added text (${result.chunks_created} chunks)`)
+      fetchSources()
+      setPastedText('')
+      setTextSourceName('')
+      setShowUploadPanel(false)
+      setUploadType(null)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add text')
     } finally {
       setUploading(false)
     }
@@ -1136,6 +1162,15 @@ export default function ChatPage() {
                   </div>
                   <span className="text-sm font-medium">GitHub</span>
                 </button>
+                <button
+                  onClick={() => setUploadType('text')}
+                  className="card card-interactive p-4 flex flex-col items-center gap-2"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <span className="text-sm font-medium">Paste text</span>
+                </button>
               </div>
             ) : uploadType === 'pdf' ? (
               <div className="space-y-3">
@@ -1184,7 +1219,7 @@ export default function ChatPage() {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : uploadType === 'github' ? (
               <div className="space-y-3">
                 <input
                   type="url"
@@ -1210,6 +1245,34 @@ export default function ChatPage() {
                     className="btn-primary flex-1"
                   >
                     {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Repo'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Paste or type any text..."
+                  className="w-full bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl px-4 py-3 text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none min-h-[100px] resize-y"
+                />
+                <input
+                  type="text"
+                  value={textSourceName}
+                  onChange={(e) => setTextSourceName(e.target.value)}
+                  placeholder="Name (optional)"
+                  className="w-full bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl px-4 py-3 text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 focus:border-indigo-500 dark:focus:border-indigo-500 focus:border-pink-400 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => setUploadType(null)} className="btn-ghost text-sm">
+                    Back
+                  </button>
+                  <button
+                    onClick={handleTextSubmit}
+                    disabled={uploading || !pastedText.trim()}
+                    className="btn-primary flex-1"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add text'}
                   </button>
                 </div>
               </div>

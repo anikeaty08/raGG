@@ -130,6 +130,12 @@ class GitHubIngestRequest(BaseModel):
 class URLIngestRequest(BaseModel):
     url: str
 
+
+class TextIngestRequest(BaseModel):
+    text: str
+    name: Optional[str] = None
+
+
 class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
@@ -302,6 +308,37 @@ async def ingest_web_url(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/ingest/text", response_model=IngestResponse)
+async def ingest_text_source(
+    request: TextIngestRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+):
+    """Ingest raw text as a source."""
+    if not vector_store:
+        raise HTTPException(status_code=503, detail="Vector store not initialized")
+
+    user_id = get_user_id(authorization, x_user_id)
+
+    try:
+        from app.ingest.text import ingest_text
+        source_id, chunks = await ingest_text(
+            text=request.text,
+            vector_store=vector_store,
+            user_id=user_id,
+            name=request.name,
+        )
+        return IngestResponse(
+            message="Successfully ingested text",
+            source_id=source_id,
+            chunks_created=chunks,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ========================

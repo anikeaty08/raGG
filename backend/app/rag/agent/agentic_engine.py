@@ -36,14 +36,8 @@ class AgenticRAGEngine:
         default_provider = self.provider_factory.get_default_provider()
         if default_provider:
             self.current_provider = default_provider
-            # Get provider name from factory
-            available = self.provider_factory.get_available_providers()
-            if available:
-                self.current_provider_name = available[0]
-                self.current_model = default_provider.model
-            else:
-                self.current_provider_name = "unknown"
-                self.current_model = "unknown"
+            self.current_provider_name = default_provider.provider_name
+            self.current_model = default_provider.model
         else:
             self.current_provider = None
             self.current_provider_name = "none"
@@ -370,7 +364,7 @@ Give a helpful, natural response:"""
                 self.current_provider = self.model_router.route_query(question)
             
             if not self.current_provider:
-                yield {"error": "No LLM provider available"}
+                yield {"type": "error", "error": "No LLM provider available"}
                 return
             
             # Web search if needed
