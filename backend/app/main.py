@@ -201,6 +201,16 @@ class CleanupResponse(BaseModel):
 # Health Check
 # ========================
 
+@app.get("/")
+async def root():
+    """Root endpoint for basic connectivity check."""
+    return {
+        "message": "RAG Study Assistant API is running",
+        "status": "online",
+        "version": "2.0.0",
+        "docs_url": "/docs"
+    }
+
 @app.get("/health")
 async def health_check():
     status = "healthy"
