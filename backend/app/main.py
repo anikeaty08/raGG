@@ -39,7 +39,47 @@ vector_store = None
 query_engine = None
 agentic_engine = None
 cleanup_task = None
+initialization_status = "startup"  # startup, initializing, ready, failed
+initialization_error = None
 
+async def initialize_rag_engine():
+    """Initialize RAG engine in background to avoid blocking startup."""
+    global vector_store, query_engine, agentic_engine, initialization_status, initialization_error
+    
+    try:
+        initialization_status = "initializing"
+        print("Starting background initialization of RAG engine...")
+        
+        # Heavy imports moved here to avoid blocking import time
+        from app.rag.vectorstore import VectorStore
+        from app.rag.query import RAGQueryEngine
+        from app.rag.agent.agentic_engine import AgenticRAGEngine
+        
+        # Initialize VectorStore (makes API calls)
+        # Using to_thread to ensure we don't block the event loop
+        vector_store = await asyncio.to_thread(VectorStore)
+        print("Successfully connected to Qdrant Cloud!")
+        
+        # Initialize engines
+        query_engine = RAGQueryEngine(vector_store)
+        
+        # Initialize Agentic Engine (loads models)
+        agentic_engine = await asyncio.to_thread(AgenticRAGEngine, vector_store)
+        print("Agentic RAG Engine initialized!")
+        
+        # Run initial cleanup
+        deleted = await asyncio.to_thread(vector_store.cleanup_expired_sources)
+        if deleted > 0:
+            print(f"Initial cleanup: Deleted {deleted} expired source(s)")
+            
+        initialization_status = "ready"
+        print("RAG Engine initialization complete!")
+        
+    except Exception as e:
+        initialization_status = "failed"
+        initialization_error = str(e)
+        print(f"Warning: Could not initialize RAG engine: {e}")
+        traceback.print_exc()
 
 async def periodic_cleanup():
     """Background task to cleanup expired sources every 10 minutes."""
@@ -59,32 +99,14 @@ async def periodic_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize components on startup."""
-    global vector_store, query_engine, agentic_engine, cleanup_task
+    global cleanup_task
 
-    try:
-        from app.rag.vectorstore import VectorStore
-        from app.rag.query import RAGQueryEngine
-        from app.rag.agent.agentic_engine import AgenticRAGEngine
-
-        vector_store = VectorStore()
-        query_engine = RAGQueryEngine(vector_store)
-        agentic_engine = AgenticRAGEngine(vector_store)
-        print("Successfully connected to Qdrant Cloud!")
-        print("Agentic RAG Engine initialized!")
-
-        # Start background cleanup task
-        cleanup_task = asyncio.create_task(periodic_cleanup())
-        print("Started periodic cleanup task (runs every 10 minutes)")
-
-        # Run initial cleanup
-        deleted = vector_store.cleanup_expired_sources()
-        if deleted > 0:
-            print(f"Initial cleanup: Deleted {deleted} expired source(s)")
-
-    except Exception as e:
-        print(f"Warning: Could not initialize vector store: {e}")
-        traceback.print_exc()
-        print("App will start but ingestion/query features may not work.")
+    # Start initialization in background to allow fast startup
+    asyncio.create_task(initialize_rag_engine())
+    
+    # Start background cleanup task
+    cleanup_task = asyncio.create_task(periodic_cleanup())
+    print("Started periodic cleanup task (runs every 10 minutes)")
 
     yield
 
@@ -181,9 +203,17 @@ class CleanupResponse(BaseModel):
 
 @app.get("/health")
 async def health_check():
+    status = "healthy"
+    if initialization_status == "initializing":
+        status = "initializing"
+    elif initialization_status == "failed":
+        status = "unhealthy"
+        
     return {
-        "status": "healthy",
-        "version": "1.0.0",
+        "status": status,
+        "init_status": initialization_status,
+        "error": initialization_error,
+        "version": "2.0.0",
         "vector_store": "connected" if vector_store else "not connected",
         "data_retention_hours": 1
     }
