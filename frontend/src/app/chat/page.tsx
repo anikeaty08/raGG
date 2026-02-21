@@ -32,6 +32,14 @@ export interface Message {
   toolsUsed?: Array<{ name: string; result?: any }>
 }
 
+export interface ModelInfo {
+  [key: string]: {
+    name: string
+    icon: string
+    models: Array<{ id: string; name: string }>
+  }
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -75,7 +83,7 @@ export default function ChatPage() {
   const modelSelectorRef = useRef<HTMLDivElement>(null)
   const sessionsPanelRef = useRef<HTMLDivElement>(null)
 
-  const [modelInfo, setModelInfo] = useState<any>({
+  const [modelInfo, setModelInfo] = useState<ModelInfo>({
     gemini: {
       name: 'Gemini',
       icon: '✨',
@@ -104,7 +112,7 @@ export default function ChatPage() {
         setWorkingProviders(working.working_providers)
         
         // Update model info with fetched models
-        setModelInfo(prev => {
+        setModelInfo((prev: ModelInfo) => {
           const newInfo = { ...prev }
           
           if (available.providers.gemini) {

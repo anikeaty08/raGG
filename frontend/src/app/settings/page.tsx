@@ -68,7 +68,9 @@ export default function SettingsPage() {
   useEffect(() => {
     checkHealth()
     loadModelConfig()
-    getWorkingProviders().then(setWorkingProviders).catch(() => setWorkingProviders(null))
+    getWorkingProviders()
+      .then((data) => setWorkingProviders(data.working_providers))
+      .catch(() => setWorkingProviders(null))
   }, [])
 
   const handleSwitchModel = async (provider: string, model?: string) => {
