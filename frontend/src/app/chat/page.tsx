@@ -200,7 +200,11 @@ export default function ChatPage() {
   const loadSessionData = (sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     if (session) {
-      setMessages(session.messages || [])
+      const restoredMessages: Message[] = (session.messages || []).map((msg: any) => ({
+        ...msg,
+        timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+      }))
+      setMessages(restoredMessages)
       setSessionId(session.sessionId)
     }
   }
