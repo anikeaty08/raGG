@@ -40,7 +40,7 @@ class ProviderFactory:
         elif provider_name == "groq":
             if not settings.groq_api_key:
                 return None
-            default_model = "llama-3.1-70b-versatile"
+            default_model = "llama-3.3-70b-versatile"
             return GroqProvider(settings.groq_api_key, model or default_model)
         
         return None

@@ -20,12 +20,12 @@ const MODEL_INFO = {
     ]
   },
   groq: {
-    name: 'LLaMA 3.1 (Groq)',
+    name: 'LLaMA 3.3 (Groq)',
     description: 'Meta\'s open-source model - runs ultra fast on Groq',
     icon: '🦙',
     color: 'from-orange-500 to-red-500',
     models: [
-      { id: 'llama-3.1-70b-versatile', name: 'LLaMA 3.1 70B', desc: 'Most capable, best quality' },
+      { id: 'llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B', desc: 'Most capable, best quality' },
       { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B', desc: 'Fastest response times' },
       { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', desc: 'Great for longer contexts' },
     ]
@@ -139,13 +139,12 @@ export default function SettingsPage() {
                     key={key}
                     onClick={() => !isActive && isAvailable && handleSwitchModel(key)}
                     disabled={!isAvailable || switchingModel}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
-                      isActive
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${isActive
                         ? 'border-indigo-500 bg-indigo-500/10'
                         : isAvailable
-                        ? 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.02)]'
-                        : 'border-[rgba(255,255,255,0.05)] opacity-50 cursor-not-allowed'
-                    }`}
+                          ? 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.02)]'
+                          : 'border-[rgba(255,255,255,0.05)] opacity-50 cursor-not-allowed'
+                      }`}
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-2xl">{info.icon}</span>
@@ -183,19 +182,18 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   {(workingProviders?.[modelConfig.provider]
                     ? MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models.filter((m) =>
-                        workingProviders[modelConfig.provider].includes(m.id)
-                      )
+                      workingProviders[modelConfig.provider].includes(m.id)
+                    )
                     : MODEL_INFO[modelConfig.provider as keyof typeof MODEL_INFO].models
                   ).map((model) => (
                     <button
                       key={model.id}
                       onClick={() => handleSwitchModel(modelConfig.provider, model.id)}
                       disabled={switchingModel || modelConfig.model === model.id}
-                      className={`w-full p-3 rounded-lg text-left flex items-center justify-between transition-all ${
-                        modelConfig.model === model.id
+                      className={`w-full p-3 rounded-lg text-left flex items-center justify-between transition-all ${modelConfig.model === model.id
                           ? 'bg-indigo-500/20 border border-indigo-500/50'
                           : 'bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]'
-                      }`}
+                        }`}
                     >
                       <div>
                         <p className="font-medium text-sm">{model.name}</p>

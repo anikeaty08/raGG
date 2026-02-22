@@ -7,14 +7,12 @@ class GroqProvider(LLMProvider):
     """Groq provider (LLaMA, Mixtral)."""
     
     AVAILABLE_MODELS = [
-        "llama-3.1-70b-versatile",
+        "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
         "mixtral-8x7b-32768",
-        "llama-3-70b-8192",
-        "llama-3-8b-8192",
     ]
     
-    def __init__(self, api_key: str, model: str = "llama-3.1-70b-versatile"):
+    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile"):
         super().__init__(api_key, model)
         self.client = Groq(api_key=api_key)
     

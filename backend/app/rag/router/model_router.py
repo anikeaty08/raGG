@@ -103,7 +103,7 @@ class ModelRouter:
         
         elif provider == "groq":
             if complexity == "complex":
-                return "llama-3.1-70b-versatile" if "llama-3.1-70b-versatile" in available_models else available_models[0]
+                return "llama-3.3-70b-versatile" if "llama-3.3-70b-versatile" in available_models else available_models[0]
             else:
                 return "llama-3.1-8b-instant" if "llama-3.1-8b-instant" in available_models else available_models[-1]
         
