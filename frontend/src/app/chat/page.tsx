@@ -93,13 +93,18 @@ export default function ChatPage() {
       name: 'Groq (LLaMA)',
       icon: '🦙',
       models: []
+    },
+    anthropic: {
+      name: 'Anthropic',
+      icon: '🧠',
+      models: []
     }
   })
 
   useEffect(() => {
     fetchSources()
     loadModelConfig()
-    
+
     // Fetch available and working providers
     const fetchProviders = async () => {
       try {
@@ -107,35 +112,42 @@ export default function ChatPage() {
           getAvailableProviders(),
           getWorkingProviders()
         ])
-        
+
         setAvailableProviders(available.providers)
         setWorkingProviders(working.working_providers)
-        
+
         // Update model info with fetched models
         setModelInfo((prev: ModelInfo) => {
           const newInfo = { ...prev }
-          
+
           if (available.providers.gemini) {
             newInfo.gemini.models = available.providers.gemini.models.map(id => ({
               id,
               name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
             }))
           }
-          
+
           if (available.providers.groq) {
             newInfo.groq.models = available.providers.groq.models.map(id => ({
               id,
               name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
             }))
           }
-          
+
+          if (available.providers.anthropic) {
+            newInfo.anthropic.models = available.providers.anthropic.models.map(id => ({
+              id,
+              name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            }))
+          }
+
           return newInfo
         })
       } catch (error) {
         console.error('Failed to fetch providers:', error)
       }
     }
-    
+
     fetchProviders()
 
     loadSessions()
@@ -185,11 +197,11 @@ export default function ChatPage() {
       toast.error('No messages to export')
       return
     }
-    
-    const sessionName = currentSessionId 
+
+    const sessionName = currentSessionId
       ? sessions.find(s => s.id === currentSessionId)?.name || 'Chat'
       : 'Chat'
-    
+
     try {
       switch (format) {
         case 'json':
@@ -354,25 +366,25 @@ export default function ChatPage() {
         e.preventDefault()
         inputRef.current?.focus()
       }
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault()
         createNewSession()
       }
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
         e.preventDefault()
         if (messages.length > 0) {
           setShowExportMenu(true)
         }
       }
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         setShowSearch(true)
         setTimeout(() => searchInputRef.current?.focus(), 0)
       }
-      
+
       if (e.key === 'Escape') {
         setShowSessionsPanel(false)
         setShowModelSelector(false)
@@ -442,41 +454,41 @@ export default function ChatPage() {
       let webSearchResults: WebSearchResult[] = []
       let plan: { steps?: Array<{ type: string; reason: string }>; requires_tools?: boolean } | undefined = undefined
       let toolsUsed: Array<{ name: string; result?: any }> = []
-      
+
       await queryStream(
         question,
         sessionId || undefined,
         (event: StreamEvent) => {
           if (event.type === 'chunk') {
             accumulatedContent += event.content || ''
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMessageId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
                 ? { ...msg, content: accumulatedContent }
                 : msg
             ))
           } else if (event.type === 'web_search') {
             webSearchResults = event.web_search || []
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMessageId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
                 ? { ...msg, webSearchResults }
                 : msg
             ))
           } else if (event.type === 'done') {
             setSessionId(event.session_id || sessionId || null)
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMessageId 
-                ? { 
-                    ...msg, 
-                    citations: event.citations || [],
-                    ...(plan ? { plan } : {}),
-                    ...(toolsUsed.length > 0 ? { toolsUsed } : {})
-                  }
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
+                ? {
+                  ...msg,
+                  citations: event.citations || [],
+                  ...(plan ? { plan } : {}),
+                  ...(toolsUsed.length > 0 ? { toolsUsed } : {})
+                }
                 : msg
             ))
             setIsLoading(false)
           } else if (event.type === 'error') {
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMessageId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
                 ? { ...msg, error: true, errorMessage: event.error || 'Unknown error', content: '' }
                 : msg
             ))
@@ -493,23 +505,23 @@ export default function ChatPage() {
       // Use regular query
       try {
         const response = await query(
-          question, 
-          sessionId || undefined, 
-          5, 
+          question,
+          sessionId || undefined,
+          5,
           selectedSourceFilter || undefined,
           useAgentic,
           useWebSearch
         )
         setSessionId(response.session_id)
 
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
             ? { ...msg, content: response.answer, citations: response.citations }
             : msg
         ))
       } catch (error: any) {
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
             ? { ...msg, error: true, errorMessage: error.message || 'Failed to get response', content: '' }
             : msg
         ))
@@ -573,7 +585,7 @@ export default function ChatPage() {
 
   const handleSaveEdit = () => {
     if (!editingMessageId || !editingMessageContent.trim()) return
-    
+
     const messageIndex = messages.findIndex(m => m.id === editingMessageId)
     if (messageIndex === -1) return
 
@@ -627,7 +639,7 @@ export default function ChatPage() {
     if (userMessage.role !== 'user') return
 
     setRegeneratingMessageId(messageId)
-    
+
     // Remove the assistant message
     const messagesToKeep = messages.slice(0, messageIndex)
     setMessages(messagesToKeep)
@@ -829,25 +841,24 @@ export default function ChatPage() {
                       const inWorking = workingProviders === null || workingProviders[key]
                       const isAvailable = modelConfig.available_providers.includes(key) && inWorking
 
+                      if (!isAvailable) return null
+
                       return (
                         <div key={key}>
                           <button
                             onClick={() => isAvailable && !isActive && handleSwitchModel(key)}
                             disabled={!isAvailable || switchingModel}
-                            className={`w-full p-3 rounded-lg text-left transition-all mb-1 ${
-                              isActive
-                                ? 'bg-indigo-500/20 border border-indigo-500/50'
-                                : isAvailable
-                                ? 'hover:bg-[rgba(255,255,255,0.05)] border border-transparent'
-                                : 'opacity-50 cursor-not-allowed'
-                            }`}
+                            className={`w-full p-3 rounded-lg text-left transition-all mb-1 ${isActive
+                              ? 'bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-100/50 border border-indigo-500/50 dark:border-indigo-500/50 border-pink-400/50'
+                              : 'hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-50 border border-transparent'
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span>{info.icon}</span>
-                                <span className="font-medium text-sm">{info.name}</span>
+                                <span className="font-medium text-sm text-gray-800 dark:text-white">{info.name}</span>
                               </div>
-                              {isActive && <CheckCircle className="w-4 h-4 text-indigo-400" />}
+                              {isActive && <CheckCircle className="w-4 h-4 text-pink-500 dark:text-indigo-400" />}
                             </div>
                           </button>
                           {isActive && (
@@ -860,11 +871,10 @@ export default function ChatPage() {
                                   key={model.id}
                                   onClick={() => handleSwitchModel(key, model.id)}
                                   disabled={switchingModel || modelConfig.model === model.id}
-                                  className={`w-full p-2 rounded text-left text-xs transition-all ${
-                                    modelConfig.model === model.id
-                                      ? 'bg-indigo-500/10 text-indigo-400'
-                                      : 'hover:bg-[rgba(255,255,255,0.03)] text-[#94a3b8]'
-                                  }`}
+                                  className={`w-full p-2 rounded text-left text-xs transition-all ${modelConfig.model === model.id
+                                    ? 'bg-indigo-500/10 dark:bg-indigo-500/10 bg-pink-100/50 text-indigo-400 dark:text-indigo-400 text-pink-600'
+                                    : 'hover:bg-[rgba(255,255,255,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] hover:bg-pink-50/50 text-gray-600 dark:text-[#94a3b8]'
+                                    }`}
                                 >
                                   {model.name}
                                 </button>
@@ -931,15 +941,6 @@ export default function ChatPage() {
                       className="w-4 h-4"
                     />
                     <span className="hidden sm:inline">Agentic</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useWebSearch}
-                      onChange={(e) => setUseWebSearch(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="hidden sm:inline">Web Search</span>
                   </label>
                 </div>
                 <div className="relative" ref={exportMenuRef}>
@@ -1013,11 +1014,10 @@ export default function ChatPage() {
               {sessions.map((session) => (
                 <div
                   key={session.id}
-                  className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
-                    currentSessionId === session.id
-                      ? 'bg-indigo-500/20 border border-indigo-500/50'
-                      : 'hover:bg-[rgba(255,255,255,0.05)] border border-transparent'
-                  }`}
+                  className={`group relative p-3 rounded-lg cursor-pointer transition-all ${currentSessionId === session.id
+                    ? 'bg-indigo-500/20 border border-indigo-500/50'
+                    : 'hover:bg-[rgba(255,255,255,0.05)] border border-transparent'
+                    }`}
                   onClick={() => switchSession(session.id)}
                 >
                   {editingSessionId === session.id ? (
@@ -1076,7 +1076,7 @@ export default function ChatPage() {
                 </div>
               ))}
             </div>
-            
+
             {/* Available Models List */}
             <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
               <h3 className="text-xs font-semibold text-[#94a3b8] dark:text-[#94a3b8] text-pink-600/80 mb-3 px-3 uppercase tracking-wider flex items-center gap-2">
@@ -1131,7 +1131,7 @@ export default function ChatPage() {
           </div>
           {searchQuery && (
             <div className="max-w-4xl mx-auto mt-2 text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">
-              Found {messages.filter(m => 
+              Found {messages.filter(m =>
                 m.content.toLowerCase().includes(searchQuery.toLowerCase())
               ).length} message(s)
             </div>
@@ -1147,13 +1147,13 @@ export default function ChatPage() {
           ) : (
             <div className="space-y-6">
               {messages
-                .filter(message => 
-                  !searchQuery || 
+                .filter(message =>
+                  !searchQuery ||
                   message.content.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((message, index) => {
                   const originalIndex = messages.findIndex(m => m.id === message.id)
-                  
+
                   // Hide empty assistant messages if we are loading (TypingIndicator handles it)
                   // But if content has started streaming, show the message and hide TypingIndicator
                   if (message.role === 'assistant' && !message.content && isLoading && index === messages.length - 1) {
@@ -1172,24 +1172,24 @@ export default function ChatPage() {
                         <ToolUsage key={idx} toolName={tool.name} toolResult={tool.result} />
                       ))}
                       <MessageBubble
-                      message={message}
-                      isEditing={editingMessageId === message.id}
-                      editingContent={editingMessageContent}
-                      onEditContentChange={setEditingMessageContent}
-                      onSaveEdit={handleSaveEdit}
-                      onCancelEdit={() => {
-                        setEditingMessageId(null)
-                        setEditingMessageContent('')
-                      }}
-                      onEdit={() => handleEditMessage(message.id)}
-                      onDelete={() => handleDeleteMessage(message.id)}
-                  onRegenerate={() => handleRegenerate(message.id)}
-                  onCopy={handleCopyMessage}
-                  onRetry={message.error ? () => handleRetry(message.id) : undefined}
-                  canRegenerate={message.role === 'assistant' && originalIndex > 0 && messages[originalIndex - 1].role === 'user'}
-                  isRegenerating={regeneratingMessageId === message.id}
-                  highlightText={searchQuery}
-                    />
+                        message={message}
+                        isEditing={editingMessageId === message.id}
+                        editingContent={editingMessageContent}
+                        onEditContentChange={setEditingMessageContent}
+                        onSaveEdit={handleSaveEdit}
+                        onCancelEdit={() => {
+                          setEditingMessageId(null)
+                          setEditingMessageContent('')
+                        }}
+                        onEdit={() => handleEditMessage(message.id)}
+                        onDelete={() => handleDeleteMessage(message.id)}
+                        onRegenerate={() => handleRegenerate(message.id)}
+                        onCopy={handleCopyMessage}
+                        onRetry={message.error ? () => handleRetry(message.id) : undefined}
+                        canRegenerate={message.role === 'assistant' && originalIndex > 0 && messages[originalIndex - 1].role === 'user'}
+                        isRegenerating={regeneratingMessageId === message.id}
+                        highlightText={searchQuery}
+                      />
                     </div>
                   )
                 })}
@@ -1372,6 +1372,79 @@ export default function ChatPage() {
               >
                 <Plus className="w-5 h-5" />
               </button>
+              <div className="relative" ref={modelSelectorRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowModelSelector(!showModelSelector)}
+                  className={`p-3 rounded-xl transition-all flex items-center gap-1.5 ${showModelSelector ? 'bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-200/50 text-indigo-400 dark:text-indigo-400 text-pink-600' : 'text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800 hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-100/50'}`}
+                  title="Change model"
+                >
+                  {modelConfig ? (
+                    <>
+                      <span className="text-sm">{modelInfo[modelConfig.provider]?.icon || '🤖'}</span>
+                      <span className="text-xs font-medium hidden sm:inline max-w-[80px] truncate">{modelConfig.model.split('-').slice(0, 2).join('-')}</span>
+                    </>
+                  ) : (
+                    <Cpu className="w-4 h-4" />
+                  )}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showModelSelector && (
+                  <div className="absolute left-0 bottom-full mb-2 w-64 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-2">
+                      {modelConfig && Object.entries(modelInfo).map(([key, info]: [string, any]) => {
+                        const isActive = modelConfig.provider === key
+                        const inWorking = workingProviders === null || workingProviders[key]
+                        const isAvailable = modelConfig.available_providers.includes(key) && inWorking
+
+                        if (!isAvailable) return null
+
+                        return (
+                          <div key={key}>
+                            <button
+                              onClick={() => isAvailable && !isActive && handleSwitchModel(key)}
+                              disabled={!isAvailable || switchingModel}
+                              className={`w-full p-3 rounded-lg text-left transition-all mb-1 ${isActive
+                                ? 'bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-100/50 border border-indigo-500/50 dark:border-indigo-500/50 border-pink-400/50'
+                                : 'hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-50 border border-transparent'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span>{info.icon}</span>
+                                  <span className="font-medium text-sm text-gray-800 dark:text-white">{info.name}</span>
+                                </div>
+                                {isActive && <CheckCircle className="w-4 h-4 text-indigo-400 dark:text-indigo-400 text-pink-500" />}
+                              </div>
+                            </button>
+                            {isActive && (
+                              <div className="pl-4 pr-2 pb-2 space-y-1">
+                                {(workingProviders?.[key]
+                                  ? info.models.filter((m: any) => workingProviders[key].includes(m.id))
+                                  : info.models
+                                ).map((model: any) => (
+                                  <button
+                                    key={model.id}
+                                    onClick={() => handleSwitchModel(key, model.id)}
+                                    disabled={switchingModel || modelConfig.model === model.id}
+                                    className={`w-full p-2 rounded text-left text-xs transition-all ${modelConfig.model === model.id
+                                      ? 'bg-indigo-500/10 dark:bg-indigo-500/10 bg-pink-100/50 text-indigo-400 dark:text-indigo-400 text-pink-600'
+                                      : 'hover:bg-[rgba(255,255,255,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] hover:bg-pink-50/50 text-[#94a3b8] dark:text-[#94a3b8] text-gray-600'
+                                      }`}
+                                  >
+                                    {model.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -1425,8 +1498,8 @@ function WelcomeScreen({ sources, sourcesLoading, onAddSource }: { sources: Sour
         {sourcesLoading
           ? 'Loading your sources...'
           : sources.length === 0
-          ? 'Start chatting! Add sources like GitHub repos, PDFs, or URLs for answers with citations.'
-          : `You have ${sources.length} source${sources.length > 1 ? 's' : ''} loaded. Ask me anything!`
+            ? 'Start chatting! Add sources like GitHub repos, PDFs, or URLs for answers with citations.'
+            : `You have ${sources.length} source${sources.length > 1 ? 's' : ''} loaded. Ask me anything!`
         }
       </p>
 
@@ -1524,7 +1597,7 @@ function MessageBubble({
   const highlightTextInContent = (content: string, query: string) => {
     if (!query) return content
     const parts = content.split(new RegExp(`(${query})`, 'gi'))
-    return parts.map((part, i) => 
+    return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? (
         <mark key={i} className="bg-yellow-500/30 text-yellow-200">{part}</mark>
       ) : (
@@ -1537,11 +1610,10 @@ function MessageBubble({
     <div className={`flex gap-4 fade-in group ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-          isUser
-            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 dark:from-cyan-500 dark:to-blue-600 from-pink-400 to-rose-500'
-            : 'bg-gradient-to-br from-purple-500 to-pink-600 dark:from-purple-500 dark:to-pink-600 from-pink-300 to-rose-400'
-        }`}
+        className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isUser
+          ? 'bg-gradient-to-br from-cyan-500 to-blue-600 dark:from-cyan-500 dark:to-blue-600 from-pink-400 to-rose-500'
+          : 'bg-gradient-to-br from-purple-500 to-pink-600 dark:from-purple-500 dark:to-pink-600 from-pink-300 to-rose-400'
+          }`}
       >
         {isUser ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
       </div>
@@ -1585,9 +1657,8 @@ function MessageBubble({
           ) : (
             <>
               <div
-                className={`inline-block rounded-2xl px-5 py-3 relative ${
-                  isUser ? 'message-user text-white dark:text-white' : 'message-ai text-white/90 dark:text-white/90 text-gray-800'
-                }`}
+                className={`inline-block rounded-2xl px-5 py-3 relative ${isUser ? 'message-user text-white dark:text-white' : 'message-ai text-white/90 dark:text-white/90 text-gray-800'
+                  }`}
                 onMouseEnter={() => setShowActions(true)}
                 onMouseLeave={() => setShowActions(false)}
               >
@@ -1744,7 +1815,7 @@ function MessageBubble({
         )}
 
         {/* Timestamp */}
-          <p className={`text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 mt-2 ${isUser ? 'text-right' : ''}`}>
+        <p className={`text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70 mt-2 ${isUser ? 'text-right' : ''}`}>
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>

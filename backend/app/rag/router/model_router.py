@@ -84,11 +84,11 @@ class ModelRouter:
         
         if provider == "anthropic":
             if complexity == "complex":
-                return "claude-3-5-opus-20241022" if "claude-3-5-opus-20241022" in available_models else available_models[0]
+                return "claude-opus-4-20250514" if "claude-opus-4-20250514" in available_models else available_models[0]
             elif complexity == "simple":
-                return "claude-3-5-haiku-20241022" if "claude-3-5-haiku-20241022" in available_models else available_models[-1]
+                return "claude-haiku-4-20250514" if "claude-haiku-4-20250514" in available_models else available_models[-1]
             else:
-                return "claude-3-5-sonnet-20241022" if "claude-3-5-sonnet-20241022" in available_models else available_models[0]
+                return "claude-sonnet-4-20250514" if "claude-sonnet-4-20250514" in available_models else available_models[0]
         
         elif provider == "openai":
             if complexity == "complex":

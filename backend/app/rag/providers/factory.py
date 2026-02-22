@@ -22,7 +22,7 @@ class ProviderFactory:
         if provider_name == "anthropic":
             if not settings.anthropic_api_key:
                 return None
-            default_model = "claude-3-5-sonnet-20241022"
+            default_model = "claude-sonnet-4-20250514"
             return AnthropicProvider(settings.anthropic_api_key, model or default_model)
         
         # elif provider_name == "openai":

@@ -97,23 +97,21 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
               <Brain className="w-6 h-6 text-white" />
             </div>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
-              isHealthy === null ? 'bg-yellow-500/20 text-yellow-400' :
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${isHealthy === null ? 'bg-yellow-500/20 text-yellow-400' :
               isHealthy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                isHealthy === null ? 'bg-yellow-400 animate-pulse' :
+              }`}>
+              <div className={`w-2 h-2 rounded-full ${isHealthy === null ? 'bg-yellow-400 animate-pulse' :
                 isHealthy ? 'bg-emerald-400' : 'bg-red-400'
-              }`} />
+                }`} />
               {isHealthy === null ? 'Connecting...' : isHealthy ? 'System Online' : 'Disconnected'}
             </div>
           </div>
 
           <h1 className="text-3xl md:text-4xl font-bold mb-3">
-            Welcome to <span className="gradient-text">RAG Study Assistant</span>
+            Welcome to <span className="gradient-text">Neuron</span>
           </h1>
           <p className="text-lg text-[#94a3b8] dark:text-[#94a3b8] text-pink-700/80 max-w-2xl mb-6">
-            Your AI-powered study companion. Upload your materials and get instant, cited answers powered by Gemini 2.5.
+            Your AI-powered study companion. Upload your materials and get instant, cited answers from multiple AI models.
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -224,13 +222,12 @@ export default function Dashboard() {
             {sources.slice(0, 5).map((source) => (
               <div key={source.id} className="card py-3 px-4 flex items-center justify-between hover:border-indigo-500/30 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    source.type === 'github' ? 'bg-purple-500/20' :
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${source.type === 'github' ? 'bg-purple-500/20' :
                     source.type === 'pdf' ? 'bg-rose-500/20' : 'bg-emerald-500/20'
-                  }`}>
+                    }`}>
                     {source.type === 'github' ? <Github className="w-5 h-5 text-purple-400" /> :
-                     source.type === 'pdf' ? <FileText className="w-5 h-5 text-rose-400" /> :
-                     <Globe className="w-5 h-5 text-emerald-400" />}
+                      source.type === 'pdf' ? <FileText className="w-5 h-5 text-rose-400" /> :
+                        <Globe className="w-5 h-5 text-emerald-400" />}
                   </div>
                   <div>
                     <p className="text-sm font-medium truncate max-w-[200px] md:max-w-[400px]">
@@ -239,10 +236,9 @@ export default function Dashboard() {
                     <p className="text-xs text-[#64748b]">{source.chunks} chunks</p>
                   </div>
                 </div>
-                <span className={`badge ${
-                  source.type === 'github' ? 'badge-github' :
+                <span className={`badge ${source.type === 'github' ? 'badge-github' :
                   source.type === 'pdf' ? 'badge-pdf' : 'badge-web'
-                }`}>
+                  }`}>
                   {source.type}
                 </span>
               </div>

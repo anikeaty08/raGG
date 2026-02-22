@@ -29,6 +29,17 @@ const MODEL_INFO = {
       { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B', desc: 'Fastest response times' },
       { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', desc: 'Great for longer contexts' },
     ]
+  },
+  anthropic: {
+    name: 'Anthropic (Claude)',
+    description: 'Anthropic\'s Claude models - excellent reasoning',
+    icon: '🧠',
+    color: 'from-purple-500 to-indigo-500',
+    models: [
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', desc: 'Best balance of intelligence and speed' },
+      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', desc: 'Most capable, complex tasks' },
+      { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4', desc: 'Fastest, great for simple tasks' },
+    ]
   }
 }
 
@@ -107,7 +118,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
-        <p className="text-[#94a3b8]">Configure your RAG Study Assistant</p>
+        <p className="text-[#94a3b8]">Configure your Neuron assistant</p>
       </div>
 
       {/* AI Model Selection */}
@@ -140,10 +151,10 @@ export default function SettingsPage() {
                     onClick={() => !isActive && isAvailable && handleSwitchModel(key)}
                     disabled={!isAvailable || switchingModel}
                     className={`p-4 rounded-xl border-2 text-left transition-all ${isActive
-                        ? 'border-indigo-500 bg-indigo-500/10'
-                        : isAvailable
-                          ? 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.02)]'
-                          : 'border-[rgba(255,255,255,0.05)] opacity-50 cursor-not-allowed'
+                      ? 'border-indigo-500 bg-indigo-500/10'
+                      : isAvailable
+                        ? 'border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.02)]'
+                        : 'border-[rgba(255,255,255,0.05)] opacity-50 cursor-not-allowed'
                       }`}
                   >
                     <div className="flex items-center gap-3 mb-2">
@@ -191,8 +202,8 @@ export default function SettingsPage() {
                       onClick={() => handleSwitchModel(modelConfig.provider, model.id)}
                       disabled={switchingModel || modelConfig.model === model.id}
                       className={`w-full p-3 rounded-lg text-left flex items-center justify-between transition-all ${modelConfig.model === model.id
-                          ? 'bg-indigo-500/20 border border-indigo-500/50'
-                          : 'bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]'
+                        ? 'bg-indigo-500/20 border border-indigo-500/50'
+                        : 'bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]'
                         }`}
                     >
                       <div>

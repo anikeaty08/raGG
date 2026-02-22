@@ -100,11 +100,11 @@ function AuthButton() {
 
 function ThemeToggle() {
   const [mounted, setMounted] = useState(false)
-  
+
   useEffect(() => {
     setMounted(true)
   }, [])
-  
+
   if (!mounted) {
     return (
       <button
@@ -115,7 +115,7 @@ function ThemeToggle() {
       </button>
     )
   }
-  
+
   const { theme, toggleTheme } = useTheme()
   return (
     <button
@@ -190,9 +190,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#fef7ff] dark:bg-[#0a0a0f] border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 flex flex-col z-40 transition-transform duration-300 backdrop-blur-xl ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed md:sticky top-0 left-0 h-screen w-72 bg-[#fef7ff] dark:bg-[#0a0a0f] border-r border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 flex flex-col z-40 transition-transform duration-300 backdrop-blur-xl ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
@@ -201,7 +200,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-lg gradient-text">RAG Assistant</h1>
+              <h1 className="font-bold text-lg gradient-text">Neuron</h1>
               <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">AI-Powered Learning</p>
             </div>
           </Link>
@@ -209,14 +208,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
         {/* Connection Status */}
         <div className="px-6 py-3 border-b border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/20">
-          <div className={`flex items-center gap-2 text-xs font-medium ${
-            isConnected === null ? 'text-yellow-400' :
+          <div className={`flex items-center gap-2 text-xs font-medium ${isConnected === null ? 'text-yellow-400' :
             isConnected ? 'text-emerald-400' : 'text-red-400'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${
-              isConnected === null ? 'bg-yellow-400 animate-pulse' :
+            }`}>
+            <div className={`w-2 h-2 rounded-full ${isConnected === null ? 'bg-yellow-400 animate-pulse' :
               isConnected ? 'bg-emerald-400' : 'bg-red-400'
-            }`} />
+              }`} />
             {isConnected === null ? 'Connecting...' : isConnected ? 'Connected' : 'Disconnected'}
           </div>
         </div>
@@ -282,8 +279,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">RAG Study Assistant</p>
-                  <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">Powered by Gemini 2.5</p>
+                  <p className="text-sm font-semibold">Neuron</p>
+                  <p className="text-xs text-[#64748b] dark:text-[#64748b] text-pink-600/70">Multi-model AI</p>
                 </div>
               </div>
 
@@ -317,7 +314,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Bottom bar */}
             <div className="mt-6 pt-4 border-t border-[rgba(255,255,255,0.05)] flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-[#64748b]">
-              <p className="text-pink-600/60 dark:text-[#64748b]">&copy; {new Date().getFullYear()} RAG Study Assistant. All rights reserved.</p>
+              <p className="text-pink-600/60 dark:text-[#64748b]">&copy; {new Date().getFullYear()} Neuron. All rights reserved.</p>
               <p className="text-pink-600/60 dark:text-[#64748b]">Data auto-deletes after 1 hour for privacy</p>
             </div>
           </div>
@@ -335,8 +332,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <title>RAG Study Assistant</title>
-        <meta name="description" content="AI-powered study assistant with RAG" />
+        <title>Neuron — AI Study Assistant</title>
+        <meta name="description" content="AI-powered study assistant — upload docs, ask questions, get cited answers" />
         <link rel="icon" href="/favicon.ico" />
         <script
           dangerouslySetInnerHTML={{

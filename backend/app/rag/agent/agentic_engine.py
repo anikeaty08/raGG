@@ -208,6 +208,16 @@ class AgenticRAGEngine:
                     user_id=user_id
                 )
             
+            # Auto web search fallback: if no docs found and web search wasn't already done
+            if not results and not use_web_search:
+                web_search_tool = tool_registry.get("web_search")
+                if not web_search_tool:
+                    web_search_tool = tool_registry.get("web_search_google")
+                if web_search_tool:
+                    search_result = await web_search_tool.execute(query=question, max_results=5)
+                    if search_result.success:
+                        web_search_results = search_result.data
+            
             # Build context
             context_parts = []
             citations = []
@@ -395,6 +405,15 @@ Give a helpful, natural response:"""
                     source_filter=source_filter,
                     user_id=user_id
                 )
+            
+            # Auto web search fallback: if no docs found and web search wasn't already done
+            if not results and not use_web_search:
+                web_search_tool = tool_registry.get("web_search") or tool_registry.get("web_search_google")
+                if web_search_tool:
+                    search_result = await web_search_tool.execute(query=question, max_results=5)
+                    if search_result.success:
+                        web_search_results = search_result.data
+                        yield {"type": "web_search", "results": web_search_results, "session_id": session_id}
             
             # Build context
             context_parts = []
