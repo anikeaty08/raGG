@@ -73,7 +73,7 @@ export default function ChatPage() {
   const [selectedSourceFilter, setSelectedSourceFilter] = useState<string | null>(null)
   const [useStreaming, setUseStreaming] = useState(true)
   const [useAgentic, setUseAgentic] = useState(true)
-  const [useWebSearch, setUseWebSearch] = useState(false)
+  const [useWebSearch, setUseWebSearch] = useState(true)
   const [availableProviders, setAvailableProviders] = useState<Record<string, { models: string[] }> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
