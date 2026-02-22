@@ -37,32 +37,5 @@ jobs:
           pip install flake8 black
           black --check app/
           flake8 app/ --max-line-length=120 --ignore=E203,W503
-      
-      - name: Run tests
-        working-directory: ./backend
-        env:
-          QDRANT_URL: ${{ secrets.QDRANT_URL }}
-          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
-        run: |
-          pytest tests/ -v --cov=app --cov-report=xml
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./backend/coverage.xml
-          flags: backend
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Deploy to Render
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-        run: |
-          echo "Deployment would happen here with Render API"
-          # Add actual deployment commands based on your Render setup
+

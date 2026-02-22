@@ -28,6 +28,14 @@ class CodeExecutorTool(Tool):
     ) -> ToolResult:
         """Execute code in sandboxed environment."""
         
+        # Disable code execution in production for security
+        if os.getenv("ENVIRONMENT") == "production":
+            return ToolResult(
+                success=False,
+                data=None,
+                error="Code execution is disabled in production"
+            )
+        
         if not code or not code.strip():
             return ToolResult(
                 success=False,

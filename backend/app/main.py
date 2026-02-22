@@ -36,7 +36,6 @@ if settings.sentry_dsn:
 
 # Global instances (initialized on startup)
 vector_store = None
-query_engine = None
 agentic_engine = None
 cleanup_task = None
 initialization_status = "startup"  # startup, initializing, ready, failed
@@ -44,7 +43,7 @@ initialization_error = None
 
 async def initialize_rag_engine():
     """Initialize RAG engine in background to avoid blocking startup."""
-    global vector_store, query_engine, agentic_engine, initialization_status, initialization_error
+    global vector_store, agentic_engine, initialization_status, initialization_error
     
     try:
         initialization_status = "initializing"
@@ -52,7 +51,6 @@ async def initialize_rag_engine():
         
         # Heavy imports moved here to avoid blocking import time
         from app.rag.vectorstore import VectorStore
-        from app.rag.query import RAGQueryEngine
         from app.rag.agent.agentic_engine import AgenticRAGEngine
         
         # Initialize VectorStore (makes API calls)
@@ -60,8 +58,6 @@ async def initialize_rag_engine():
         vector_store = await asyncio.to_thread(VectorStore)
         print("Successfully connected to Qdrant Cloud!")
         
-        # Initialize engines
-        query_engine = RAGQueryEngine(vector_store)
         
         # Initialize Agentic Engine (loads models)
         agentic_engine = await asyncio.to_thread(AgenticRAGEngine, vector_store)

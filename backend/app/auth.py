@@ -64,7 +64,7 @@ def get_user_id(
         try:
             user = verify_google_token(authorization[7:])
             return user["user_id"]
-        except:
+        except Exception:
             pass
 
     # Fall back to X-User-ID header (for non-authenticated users)
