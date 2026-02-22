@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 import uuid
 import asyncio
 import json
-from datetime import datetime
 import os
+from datetime import datetime
 import traceback
 
 from app.config import get_settings
@@ -297,26 +297,39 @@ async def ingest_pdf_file(
     authorization: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None)
 ):
-    """Upload and ingest a PDF file."""
+    """Upload and ingest a PDF, Excel, or CSV file."""
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not initialized")
 
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="File must be a PDF")
+    allowed_extensions = (".pdf", ".xlsx", ".xls", ".csv")
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    if file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"File must be one of: {', '.join(allowed_extensions)}")
 
     user_id = get_user_id(authorization, x_user_id)
 
     try:
-        from app.ingest.pdf import ingest_pdf
         content = await file.read()
-        source_id, chunks = await ingest_pdf(
-            content=content,
-            filename=file.filename,
-            vector_store=vector_store,
-            user_id=user_id
-        )
+
+        if file_ext == ".pdf":
+            from app.ingest.pdf import ingest_pdf
+            source_id, chunks = await ingest_pdf(
+                content=content,
+                filename=file.filename,
+                vector_store=vector_store,
+                user_id=user_id
+            )
+        else:
+            from app.ingest.excel import ingest_excel
+            source_id, chunks = await ingest_excel(
+                content=content,
+                filename=file.filename,
+                vector_store=vector_store,
+                user_id=user_id
+            )
+
         return IngestResponse(
-            message=f"Successfully ingested PDF: {file.filename}",
+            message=f"Successfully ingested: {file.filename}",
             source_id=source_id,
             chunks_created=chunks
         )

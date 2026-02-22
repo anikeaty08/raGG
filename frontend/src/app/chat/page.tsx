@@ -712,8 +712,10 @@ export default function ChatPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.name.endsWith('.pdf')) {
-      toast.error('Please select a PDF file')
+    const allowedExtensions = ['.pdf', '.xlsx', '.xls', '.csv']
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+    if (!allowedExtensions.includes(ext)) {
+      toast.error('Please select a PDF, Excel, or CSV file')
       return
     }
 
@@ -725,7 +727,7 @@ export default function ChatPage() {
       setShowUploadPanel(false)
       setUploadType(null)
     } catch (error: any) {
-      toast.error(error.message || 'Failed to upload PDF')
+      toast.error(error.message || 'Failed to upload file')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -1191,7 +1193,7 @@ export default function ChatPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.xlsx,.xls,.csv"
                   onChange={handlePDFUpload}
                   className="hidden"
                 />
@@ -1205,7 +1207,7 @@ export default function ChatPage() {
                   ) : (
                     <Upload className="w-8 h-8 text-rose-400" />
                   )}
-                  <span className="text-sm">{uploading ? 'Uploading...' : 'Click to select PDF'}</span>
+                  <span className="text-sm">{uploading ? 'Uploading...' : 'Click to select file (PDF, Excel, CSV)'}</span>
                 </button>
                 <button onClick={() => setUploadType(null)} className="text-sm text-[#64748b] dark:text-[#64748b] text-pink-600/70 hover:text-white dark:hover:text-white hover:text-pink-800">
                   Back
