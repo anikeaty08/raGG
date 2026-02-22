@@ -213,16 +213,20 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    status = "healthy"
     if initialization_status == "initializing":
-        status = "initializing"
-    elif initialization_status == "failed":
-        status = "unhealthy"
-        
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "initializing", "message": "RAG engine is starting up..."}
+        )
+    if initialization_status == "failed":
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unhealthy", "error": initialization_error}
+        )
+
     return {
-        "status": status,
+        "status": "healthy",
         "init_status": initialization_status,
-        "error": initialization_error,
         "version": "2.0.0",
         "vector_store": "connected" if vector_store else "not connected",
         "data_retention_hours": 1
