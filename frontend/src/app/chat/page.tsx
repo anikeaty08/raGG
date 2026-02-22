@@ -1456,7 +1456,7 @@ export default function ChatPage() {
                 placeholder={sources.length === 0 ? 'Ask me anything! Add sources for cited answers...' : 'Ask anything about your sources...'}
                 disabled={isLoading}
                 rows={1}
-                className="flex-1 bg-transparent resize-none outline-none text-white dark:text-white text-gray-800 placeholder-[#64748b] dark:placeholder-[#64748b] placeholder-pink-400/60 px-2 py-3 max-h-40 min-h-[52px]"
+                className="flex-1 bg-transparent resize-none outline-none text-gray-800 dark:text-white placeholder-pink-400/60 dark:placeholder-[#64748b] px-2 py-3 max-h-40 min-h-[52px]"
               />
               <button
                 type="submit"
