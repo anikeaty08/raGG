@@ -496,7 +496,7 @@ export default function ChatPage() {
             toast.error(event.error || 'Unknown error')
           }
         },
-        5,
+        10,
         selectedSourceFilter || undefined,
         useAgentic,
         useWebSearch
@@ -507,7 +507,7 @@ export default function ChatPage() {
         const response = await query(
           question,
           sessionId || undefined,
-          5,
+          10,
           selectedSourceFilter || undefined,
           useAgentic,
           useWebSearch
@@ -815,80 +815,14 @@ export default function ChatPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Model Selector */}
-            <div className="relative" ref={modelSelectorRef}>
-              <button
-                onClick={() => setShowModelSelector(!showModelSelector)}
-                className="btn-ghost flex items-center gap-2 text-sm"
-                title="Change model"
-              >
-                <Cpu className="w-4 h-4" />
-                {modelConfig ? (
-                  <span className="hidden sm:inline">
-                    {modelInfo[modelConfig.provider]?.icon} {modelConfig.model.split('-')[0]}
-                  </span>
-                ) : (
-                  <span className="hidden sm:inline">Model</span>
-                )}
-                <ChevronDown className={`w-4 h-4 transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showModelSelector && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-[#15151f] dark:bg-[#15151f] bg-white border border-[rgba(255,255,255,0.1)] dark:border-[rgba(255,255,255,0.1)] border-pink-200/30 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="p-2">
-                    {modelConfig && Object.entries(modelInfo).map(([key, info]: [string, any]) => {
-                      const isActive = modelConfig.provider === key
-                      const inWorking = workingProviders === null || workingProviders[key]
-                      const isAvailable = modelConfig.available_providers.includes(key) && inWorking
-
-                      if (!isAvailable) return null
-
-                      return (
-                        <div key={key}>
-                          <button
-                            onClick={() => isAvailable && !isActive && handleSwitchModel(key)}
-                            disabled={!isAvailable || switchingModel}
-                            className={`w-full p-3 rounded-lg text-left transition-all mb-1 ${isActive
-                              ? 'bg-indigo-500/20 dark:bg-indigo-500/20 bg-pink-100/50 border border-indigo-500/50 dark:border-indigo-500/50 border-pink-400/50'
-                              : 'hover:bg-[rgba(255,255,255,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:bg-pink-50 border border-transparent'
-                              }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span>{info.icon}</span>
-                                <span className="font-medium text-sm text-gray-800 dark:text-white">{info.name}</span>
-                              </div>
-                              {isActive && <CheckCircle className="w-4 h-4 text-pink-500 dark:text-indigo-400" />}
-                            </div>
-                          </button>
-                          {isActive && (
-                            <div className="pl-4 pr-2 pb-2 space-y-1">
-                              {(workingProviders?.[key]
-                                ? info.models.filter((m: any) => workingProviders[key].includes(m.id))
-                                : info.models
-                              ).map((model: any) => (
-                                <button
-                                  key={model.id}
-                                  onClick={() => handleSwitchModel(key, model.id)}
-                                  disabled={switchingModel || modelConfig.model === model.id}
-                                  className={`w-full p-2 rounded text-left text-xs transition-all ${modelConfig.model === model.id
-                                    ? 'bg-indigo-500/10 dark:bg-indigo-500/10 bg-pink-100/50 text-indigo-400 dark:text-indigo-400 text-pink-600'
-                                    : 'hover:bg-[rgba(255,255,255,0.03)] dark:hover:bg-[rgba(255,255,255,0.03)] hover:bg-pink-50/50 text-gray-600 dark:text-[#94a3b8]'
-                                    }`}
-                                >
-                                  {model.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
+            <button
+              onClick={createNewSession}
+              className="btn-ghost flex items-center gap-2 text-sm"
+              title="New chat"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Chat</span>
+            </button>
             {messages.length > 0 && (
               <>
                 <button
@@ -1165,9 +1099,6 @@ export default function ChatPage() {
                       {message.role === 'assistant' && message.plan && (
                         <AgentThinking isThinking={false} plan={message.plan} />
                       )}
-                      {message.role === 'assistant' && message.webSearchResults && message.webSearchResults.length > 0 && (
-                        <WebSearchResults results={message.webSearchResults} />
-                      )}
                       {message.role === 'assistant' && message.toolsUsed && message.toolsUsed.map((tool, idx) => (
                         <ToolUsage key={idx} toolName={tool.name} toolResult={tool.result} />
                       ))}
@@ -1190,6 +1121,11 @@ export default function ChatPage() {
                         isRegenerating={regeneratingMessageId === message.id}
                         highlightText={searchQuery}
                       />
+                      {message.role === 'assistant' && message.webSearchResults && message.webSearchResults.length > 0 && (
+                        <div className="ml-14 mt-2">
+                          <WebSearchResults results={message.webSearchResults} />
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -1362,7 +1298,7 @@ export default function ChatPage() {
       {/* Input */}
       <div className="border-t border-[rgba(255,255,255,0.08)] dark:border-[rgba(255,255,255,0.08)] border-pink-200/30 bg-[#0a0a0f]/80 dark:bg-[#0a0a0f]/80 bg-white/90 backdrop-blur-xl p-4">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          <div className="glass rounded-2xl p-2 focus-within:border-indigo-500/50 transition-all">
+          <div className="glass dark:glass rounded-2xl p-2 focus-within:border-indigo-500/50 dark:focus-within:border-indigo-500/50 focus-within:border-pink-400/50 transition-all bg-white/80 dark:bg-transparent border border-pink-200/40 dark:border-[rgba(255,255,255,0.1)]">
             <div className="flex items-end gap-2">
               <button
                 type="button"
@@ -1456,7 +1392,7 @@ export default function ChatPage() {
                 placeholder={sources.length === 0 ? 'Ask me anything! Add sources for cited answers...' : 'Ask anything about your sources...'}
                 disabled={isLoading}
                 rows={1}
-                className="flex-1 bg-transparent resize-none outline-none text-gray-800 dark:text-white placeholder-pink-400/60 dark:placeholder-[#64748b] px-2 py-3 max-h-40 min-h-[52px]"
+                className="flex-1 bg-transparent resize-none outline-none text-pink-800 dark:text-white placeholder-pink-400/60 dark:placeholder-[#64748b] px-2 py-3 max-h-40 min-h-[52px]"
               />
               <button
                 type="submit"
