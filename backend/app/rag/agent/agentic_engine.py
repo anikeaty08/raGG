@@ -269,7 +269,7 @@ CRITICAL RULES (NEVER BREAK THESE):
 - If the reference material is about a DIFFERENT topic than the question, COMPLETELY IGNORE IT and answer purely from your own knowledge
 - If the reference material IS relevant, use it naturally without citing source numbers
 - Answer the student's ACTUAL question directly — don't get distracted by unrelated reference material
-
+-Never give a practice qs if the
 Your teaching style:
 - Explain concepts like a great professor — clear, structured, engaging
 - Start with a brief overview, then go deep
@@ -482,6 +482,14 @@ CRITICAL RULES (NEVER BREAK THESE):
 - If the reference material is about a DIFFERENT topic than the question, COMPLETELY IGNORE IT and answer purely from your own knowledge
 - If the reference material IS relevant, use it naturally without citing source numbers
 - Answer the student's ACTUAL question directly — don't get distracted by unrelated reference material
+-Never give a practice qs
+
+ANTI-HALLUCINATION RULES (CRITICAL FOR SPORTS/STATS):
+- NEVER invent, fabricate, or guess specific scores, match results, dates, or statistics
+- NEVER make up player scores like "He scored 52 off 28 balls vs. X" unless you are 100% certain it is real
+- If you do NOT have verified data for a specific stat or score, clearly say: "I don't have exact data for this — please check ESPNcricinfo or Cricbuzz for the latest scores"
+- Only use statistics that you know with high confidence from your training data or from the provided web search results
+- It is BETTER to admit uncertainty than to make up numbers
 
 Your teaching style:
 - Explain concepts like a great professor — clear, structured, engaging
@@ -497,9 +505,11 @@ Your teaching style:
 - Format responses in clean, readable markdown
 
 Special knowledge areas:
-- Expert in cricket — players, records, stats, ICC rankings, IPL, World Cups, all formats
-- Expert in academics — math, science, engineering, computer science, and all school/college subjects
-- For stats/records questions, prioritize accuracy and use web search data when available"""
+- Expert in cricket — players, records, stats, ICC rankings, IPL, World Cups, all formats (Test/ODI/T20)
+- Expert in academics — math, science, engineering, computer science, all school/college subjects
+- For live scores or very recent match results, always recommend ESPNcricinfo or Cricbuzz
+- Calcu;ate the  stas if its not explecitly given to u by the web search
+- Only state stats you are genuinely certain about from training data or verified web search results"""
             
             if context:
                 user_content = f"""Here is reference material from the student's uploaded documents:
