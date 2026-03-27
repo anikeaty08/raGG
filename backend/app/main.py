@@ -10,6 +10,7 @@ import json
 import os
 from datetime import datetime
 import traceback
+import time
 
 from app.config import get_settings
 from app.auth import get_user_id, get_current_user, GOOGLE_CLIENT_ID
@@ -596,6 +597,66 @@ async def get_working_providers():
             continue
 
     return {"working_providers": working}
+
+
+@app.get("/settings/providers/diagnostics")
+async def get_provider_diagnostics():
+    """Test each configured provider+model and return per-model status (ok/error/latency)."""
+    from app.rag.providers.factory import ProviderFactory
+    from app.rag.providers.base import LLMMessage
+    import asyncio
+
+    factory = ProviderFactory()
+    timeout_sec = 8
+    test_message = [LLMMessage(role="user", content="Say OK")]
+
+    providers: dict[str, dict] = {}
+
+    for provider_name in factory.get_available_providers():
+        base_provider = factory.create_provider(provider_name)
+        if not base_provider:
+            continue
+
+        models = base_provider.get_available_models()
+        supports_function_calling = base_provider.supports_function_calling()
+        model_results: dict[str, dict] = {}
+
+        for model_id in models:
+            provider = factory.create_provider(provider_name, model=model_id)
+            if not provider:
+                continue
+
+            started = time.perf_counter()
+            try:
+                await asyncio.wait_for(
+                    provider.generate(messages=test_message, max_tokens=10),
+                    timeout=timeout_sec,
+                )
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                model_results[model_id] = {"ok": True, "latency_ms": latency_ms}
+            except Exception as e:
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                err = str(e) or e.__class__.__name__
+                if len(err) > 500:
+                    err = err[:500] + "..."
+                model_results[model_id] = {"ok": False, "latency_ms": latency_ms, "error": err}
+
+        providers[provider_name] = {
+            "supports_function_calling": supports_function_calling,
+            "models": model_results,
+        }
+
+    total_models = sum(len(p.get("models", {})) for p in providers.values())
+    ok_models = sum(
+        1 for p in providers.values() for r in p.get("models", {}).values() if r.get("ok") is True
+    )
+
+    return {
+        "tested_at": datetime.utcnow().isoformat() + "Z",
+        "timeout_sec": timeout_sec,
+        "summary": {"providers": len(providers), "models_ok": ok_models, "models_total": total_models},
+        "providers": providers,
+    }
 
 
 @app.post("/conversations/{session_id}/clear")

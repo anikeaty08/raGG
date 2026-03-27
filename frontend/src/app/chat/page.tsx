@@ -9,12 +9,11 @@ import { query, queryStream, listSources, ingestPDF, ingestGitHub, ingestURL, in
 import AgentThinking from '@/components/AgentThinking'
 import WebSearchResults from '@/components/WebSearchResults'
 import ToolUsage from '@/components/ToolUsage'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import MarkdownMessage from '@/components/MarkdownMessage'
 import { sessionManager, ChatSession } from '@/lib/sessionManager'
 import { exportToJSON, exportToMarkdown, exportToPDF } from '@/lib/utils/export'
 import toast from 'react-hot-toast'
-import ReactMarkdown from 'react-markdown'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 export interface Message {
   id: string
@@ -75,6 +74,13 @@ export default function ChatPage() {
   const [useAgentic, setUseAgentic] = useState(true)
   const [useWebSearch, setUseWebSearch] = useState(true)
   const [availableProviders, setAvailableProviders] = useState<Record<string, { models: string[] }> | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<null | {
+    title: string
+    description?: string
+    confirmText?: string
+    destructive?: boolean
+    onConfirm: () => void
+  }>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -606,7 +612,7 @@ export default function ChatPage() {
     handleSubmit(undefined, editingMessageContent.trim())
   }
 
-  const handleDeleteMessage = (messageId: string) => {
+  const deleteMessageNow = (messageId: string) => {
     const messageIndex = messages.findIndex(m => m.id === messageId)
     if (messageIndex === -1) return
 
@@ -629,6 +635,25 @@ export default function ChatPage() {
 
     setMessages(updatedMessages)
     toast.success('Message deleted')
+  }
+
+  const handleDeleteMessage = (messageId: string) => {
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1) return
+
+    const message = messages[messageIndex]
+    const extra =
+      message.role === 'user' && messageIndex + 1 < messages.length && messages[messageIndex + 1].role === 'assistant'
+        ? ' (and its assistant reply)'
+        : ''
+
+    setConfirmDialog({
+      title: 'Delete message?',
+      description: `This will remove this message${extra} from this chat session.`,
+      confirmText: 'Delete',
+      destructive: true,
+      onConfirm: () => deleteMessageNow(messageId),
+    })
   }
 
   const handleRegenerate = async (messageId: string) => {
@@ -681,7 +706,7 @@ export default function ChatPage() {
     }
   }
 
-  const clearChat = async () => {
+  const clearChatNow = async () => {
     if (sessionId) {
       try {
         await clearConversation(sessionId)
@@ -698,6 +723,22 @@ export default function ChatPage() {
       })
     }
     toast.success('Chat cleared')
+  }
+
+  const clearChat = () => {
+    if (messages.length === 0) {
+      toast('Chat is already empty')
+      return
+    }
+    setConfirmDialog({
+      title: 'Clear this chat?',
+      description: 'This will remove all messages in the current session (and clear server-side conversation state).',
+      confirmText: 'Clear chat',
+      destructive: true,
+      onConfirm: () => {
+        void clearChatNow()
+      },
+    })
   }
 
   const adjustTextareaHeight = () => {
@@ -997,9 +1038,13 @@ export default function ChatPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (confirm('Delete this chat session?')) {
-                              deleteSession(session.id)
-                            }
+                            setConfirmDialog({
+                              title: 'Delete chat session?',
+                              description: `This will remove "${session.name}" from this device. This does not delete your ingested sources.`,
+                              confirmText: 'Delete session',
+                              destructive: true,
+                              onConfirm: () => deleteSession(session.id),
+                            })
                           }}
                           className="p-1 rounded hover:bg-red-500/20 text-red-400"
                           title="Delete"
@@ -1413,6 +1458,16 @@ export default function ChatPage() {
             Press Enter to send, Shift + Enter for new line • Ctrl/Cmd + K to focus • Ctrl/Cmd + N for new chat • Ctrl/Cmd + F to search • Ctrl/Cmd + E to export
           </p>
         </form>
+
+        <ConfirmDialog
+          open={!!confirmDialog}
+          title={confirmDialog?.title || ''}
+          description={confirmDialog?.description}
+          confirmText={confirmDialog?.confirmText}
+          destructive={confirmDialog?.destructive}
+          onConfirm={confirmDialog?.onConfirm || (() => {})}
+          onClose={() => setConfirmDialog(null)}
+        />
       </div>
     </div>
   )
@@ -1605,40 +1660,7 @@ function MessageBubble({
                     {highlightText ? highlightTextInContent(message.content, highlightText) : message.content}
                   </p>
                 ) : (
-                  <div className="prose prose-invert prose-sm max-w-none text-left">
-                    <ReactMarkdown
-                      components={{
-                        code({ node, inline, className, children, ...props }: any) {
-                          const match = /language-(\w+)/.exec(className || '')
-                          return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={vscDarkPlus}
-                              language={match[1]}
-                              PreTag="div"
-                              className="rounded-lg"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          )
-                        },
-                        p: ({ children }: any) => {
-                          const content = String(children)
-                          return highlightText ? (
-                            <p>{highlightTextInContent(content, highlightText)}</p>
-                          ) : (
-                            <p>{children}</p>
-                          )
-                        }
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
+                  <MarkdownMessage content={message.content} highlightQuery={highlightText} highlighter={highlightTextInContent} />
                 )}
 
                 {/* Message Actions */}
@@ -1760,6 +1782,7 @@ function MessageBubble({
     </div>
   )
 }
+
 
 function TypingIndicator() {
   return (

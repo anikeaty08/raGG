@@ -849,3 +849,128 @@ code {
     font-size: 24px;
   }
 }
+
+/* Markdown (assistant messages) */
+.markdown {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.light .markdown {
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.markdown p {
+  margin: 0.5rem 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin: 0.9rem 0 0.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.markdown h1 {
+  font-size: 1.1rem;
+}
+.markdown h2 {
+  font-size: 1.05rem;
+}
+.markdown h3 {
+  font-size: 1rem;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.5rem 0 0.5rem 1.25rem;
+}
+
+.markdown li {
+  margin: 0.25rem 0;
+}
+
+.markdown blockquote {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid rgba(99, 102, 241, 0.55);
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+}
+
+.light .markdown blockquote {
+  border-left-color: rgba(236, 72, 153, 0.55);
+  background: rgba(236, 72, 153, 0.08);
+}
+
+.markdown-link {
+  color: rgba(129, 140, 248, 1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.light .markdown-link {
+  color: rgba(236, 72, 153, 1);
+}
+
+.markdown-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9em;
+  padding: 0.15rem 0.35rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.light .markdown-inline-code {
+  background: rgba(236, 72, 153, 0.08);
+  border-color: rgba(236, 72, 153, 0.18);
+}
+
+.markdown-table-wrap {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.light .markdown-table-wrap {
+  border-color: rgba(236, 72, 153, 0.18);
+}
+
+.markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.markdown-table th,
+.markdown-table td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+
+.light .markdown-table th,
+.light .markdown-table td {
+  border-bottom-color: rgba(236, 72, 153, 0.12);
+}
+
+.markdown-table th {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.light .markdown-table th {
+  background: rgba(236, 72, 153, 0.06);
+}
+
+.markdown-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.light .markdown-table tr:nth-child(even) td {
+  background: rgba(236, 72, 153, 0.03);
+}
